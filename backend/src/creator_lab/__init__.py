@@ -67,8 +67,10 @@ def create_app(cfg: Config | None = None) -> Flask:
     def _unauthorized():
         return {"error": "login required"}, 401
 
-    from . import analyzers as _registry  # noqa: F401  (registers built-in specs)
+    from .analyzers import load_builtin_specs
     from .api import bp as api_bp
+
+    load_builtin_specs()
     from .spa import bp as spa_bp
 
     app.register_blueprint(api_bp)

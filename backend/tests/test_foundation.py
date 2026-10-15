@@ -59,9 +59,7 @@ def test_change_password(client, anon):
     r = client.post("/api/auth/password", {"current_password": PASSWORD, "new_password": "a-new-password"})
     assert r.status_code == 200
     assert anon.post("/api/auth/login", {"username": "admin", "password": PASSWORD}).status_code == 401
-    assert (
-        anon.post("/api/auth/login", {"username": "admin", "password": "a-new-password"}).status_code == 200
-    )
+    assert anon.post("/api/auth/login", {"username": "admin", "password": "a-new-password"}).status_code == 200
 
 
 def test_settings_never_return_secrets(client):
@@ -95,9 +93,7 @@ def test_login_is_rate_limited(tmp_path):
     with app.app_context():
         db.create_all()
         c = app.test_client()
-        codes = [
-            c.post("/api/auth/login", json={"username": "a", "password": "b"}).status_code for _ in range(12)
-        ]
+        codes = [c.post("/api/auth/login", json={"username": "a", "password": "b"}).status_code for _ in range(12)]
         assert 429 in codes
         db.engine.dispose()
 

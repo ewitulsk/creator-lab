@@ -41,6 +41,8 @@ def start_scheduler(app: Flask) -> BackgroundScheduler:
     global _scheduler
     if _scheduler is not None:
         return _scheduler
+    from . import tasks  # noqa: F401  (registers the scheduled tasks)
+
     _scheduler = BackgroundScheduler(daemon=True, job_defaults={"coalesce": True, "max_instances": 1})
     for job_id, fn, minutes in TASKS:
         _scheduler.add_job(_wrap(app, fn), "interval", minutes=minutes, id=job_id, next_run_time=None)

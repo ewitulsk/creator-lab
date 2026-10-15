@@ -35,9 +35,7 @@ def register(spec: Spec) -> Spec:
 def ensure_analyzers() -> None:
     names = {s.name for s in REGISTRY}
     for spec in REGISTRY:
-        row = db.session.scalar(
-            db.select(Analyzer).where(Analyzer.name == spec.name, Analyzer.version == spec.version)
-        )
+        row = db.session.scalar(db.select(Analyzer).where(Analyzer.name == spec.name, Analyzer.version == spec.version))
         if row is None:
             row = Analyzer(name=spec.name, version=spec.version)
             db.session.add(row)
@@ -54,6 +52,11 @@ def ensure_analyzers() -> None:
         if (row.name, row.version) not in current:
             row.is_current = False
     db.session.commit()
+
+
+def load_builtin_specs() -> None:
+    """Import the modules that register specs (kept here so import order is explicit)."""
+    from . import builtin  # noqa: F401
 
 
 def current(name: str) -> Analyzer:

@@ -35,4 +35,4 @@ def body() -> dict:
 
 
 # Register route modules (they attach to bp on import).
-from . import session, system  # noqa: E402,F401
+from . import channels, discover, session, system, videos  # noqa: E402,F401

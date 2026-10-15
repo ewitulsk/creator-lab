@@ -34,16 +34,17 @@ platforms later. Runs on Evan's desktop now; the cloud comes later.
 | `docs/` | this plan and other docs |
 
 The listing logic in `Dataset/build_dataset.py` is ported into ingest, and its pair
-selection becomes the first study. `Dataset/channels.txt` seeds the channel list.
+selection becomes the first study.
 
 ## Data model
 
 - `platforms`
-- `channels`: platform id, handle, title, country, uploads playlist, tracking,
-  download_media, tags, notes, added_at
+- `channels`: platform id, handle, title, country, uploads playlist, followed,
+  auto_track_new, tags, notes, added_at
 - `channel_snapshots`: subscribers, views, video count, captured_at
 - `videos`: channel, platform id, title, description, published_at, duration,
-  format (long / short / live / premiere), aspect, tags, category, language, discovered_at
+  format (long / short / live / premiere), aspect, tags, category, language, discovered_at,
+  selection (discovered / tracked)
 - `video_snapshots`: views, likes, comments, captured_at, source
 - `assets`: kind (video / audio / thumbnail / captions / title-text), path, bytes,
   sha256, width, height, codec
@@ -77,7 +78,8 @@ Built-in analyzers:
 - **Media: never store 4K.** Downloads are capped at `MAX_VIDEO_HEIGHT` (default 1080;
   720 is fine). Prefer H.264 + AAC mp4, one file used by both the browser and TRIBE, with
   no proxy. AV1 or VP9 is re-encoded to H.264 with ffmpeg at the capped height. Downloads
-  are CPU-runner jobs, and only for channels with `download_media` on.
+  are CPU-runner jobs, issued only for videos Evan pulls (or new uploads of a channel
+  with auto-track on).
 - Captions: prefer uploaded over auto-generated, and save both the VTT and parsed text.
   Thumbnails: the largest available. Titles: `title.txt`.
 - The YouTube Analytics API only works for channels Evan owns, so it is unused for now.
@@ -92,6 +94,43 @@ data/
   runner_cache/tribe/
   exports/
 ```
+
+## Manual video selection (Discover)
+
+Evan picks what gets pulled. Nothing is downloaded just because a channel was opened.
+
+- **Discover page**, the main way data gets added:
+  - **Find a channel** by name with `search.list type=channel` (100 units, only on an
+    explicit search), or by URL, handle or id. Results show avatar, subscribers and
+    video count.
+  - **Open a channel** to list all its uploads from the uploads playlist (cheap:
+    `playlistItems` plus batched `videos.list`). Each upload shows thumbnail, title,
+    published date, duration, format, views and outlier score. This metadata is stored
+    in `videos` with selection `discovered`, so browsing never downloads media.
+  - **Filters**:
+    - time frame: last 7, 30 or 90 days, last year, all time, or a custom date range
+    - most popular: top N by outlier score (the default, since raw views favour older
+      videos) or by views
+    - least popular: bottom N, same options
+    - format: long-form, Shorts or both; live streams and premieres excluded by
+      default; minimum duration
+    - videos needed for study X: runs that study's criteria against this channel's
+      videos and shows the ones it would include, with their role (e.g. pair 3 hit).
+      Videos already pulled are badged. Study modules therefore expose a criteria
+      function that runs against one channel's candidates.
+  - **Selection**: checkboxes plus "select all filtered". "Pull selected" marks the
+    videos tracked, takes a stats snapshot, and queues download, captions and thumbnail
+    jobs (1080p cap). An optional toggle also adds them to a study. A cost preview
+    shows the number of videos, estimated GB at the download cap and quota units.
+- **Model**:
+  - Videos have a selection state: `discovered` (metadata only) or `tracked`
+    (snapshots plus media).
+  - Scheduled snapshots run for tracked videos only. Discovered videos are refreshed
+    when their channel is reopened.
+  - A channel can be followed (daily channel stats, new-upload checks). Its
+    "auto-track new uploads" toggle defaults to off.
+  - Listing a channel's uploads never downloads anything.
+- The seed `channels.txt` import is dropped. Channels are added through Discover.
 
 ## Runner API (Bearer `RUNNER_TOKEN`)
 
@@ -218,8 +257,8 @@ export as CSV or Parquet.
 
 1. **Foundation**: skeleton, gitignore, app factory, models and migration, login,
    settings, SPA, CI. Done when Evan can log in to an empty dashboard.
-2. **Channels and videos**: ingest, snapshots, thumbnails and captions, pages, outlier
-   score, channels.txt import. Done when his channels are browsable with stats history.
+2. **Channels and videos**: ingest, Discover (search, browse, filter, pull), snapshots,
+   thumbnails, pages, outlier score. Done when his channels are browsable with stats history.
 3. **Jobs and runners**: API, client, CPU runner downloads, staged fp16 TRIBE runner
    benchmarked, live Jobs page, coverage grid. Done when he can issue a TRIBE job and watch it.
 4. **Brain player**. Done when roomba plays with its brain response.

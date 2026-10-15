@@ -86,13 +86,16 @@ class Channel(db.Model):
     thumbnail_url: Mapped[str | None] = mapped_column(String(500))
     uploads_playlist: Mapped[str | None] = mapped_column(String(64))
     published_at: Mapped[dt.datetime | None]
-    tracking: Mapped[bool] = mapped_column(default=True)
-    download_media: Mapped[bool] = mapped_column(default=False)
+    # Followed: daily channel stats and new-upload checks. Opening a channel in
+    # Discover stores it without following it.
+    followed: Mapped[bool] = mapped_column(default=False)
+    # Pull new uploads automatically (track + media jobs). Off unless Evan turns it on.
+    auto_track_new: Mapped[bool] = mapped_column(default=False)
     is_mine: Mapped[bool] = mapped_column(default=False)  # Evan's own channels
     tags: Mapped[list] = mapped_column(JSON, default=list)
     notes: Mapped[str | None] = mapped_column(Text)
     added_at: Mapped[dt.datetime] = mapped_column(default=utcnow)
-    backfilled_at: Mapped[dt.datetime | None]
+    backfilled_at: Mapped[dt.datetime | None]  # last full uploads listing
     last_synced_at: Mapped[dt.datetime | None]
     last_snapshot_at: Mapped[dt.datetime | None]
     sync_error: Mapped[str | None] = mapped_column(Text)
@@ -117,6 +120,9 @@ class ChannelSnapshot(db.Model):
 
 
 VIDEO_FORMATS = ("long", "short", "live", "premiere")
+# discovered: metadata only (listed while browsing). tracked: Evan pulled it, so it gets
+# scheduled stats snapshots and media.
+SELECTIONS = ("discovered", "tracked")
 
 
 class Video(db.Model):
@@ -124,6 +130,7 @@ class Video(db.Model):
     __table_args__ = (
         UniqueConstraint("platform_id", "external_id"),
         Index("ix_videos_channel_published", "channel_id", "published_at"),
+        Index("ix_videos_selection", "selection"),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
     channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id", ondelete="CASCADE"))
@@ -141,6 +148,8 @@ class Video(db.Model):
     privacy: Mapped[str | None] = mapped_column(String(16))
     thumbnail_url: Mapped[str | None] = mapped_column(String(500))
     discovered_at: Mapped[dt.datetime] = mapped_column(default=utcnow)
+    selection: Mapped[str] = mapped_column(String(16), default="discovered")
+    tracked_at: Mapped[dt.datetime | None]
     metadata_at: Mapped[dt.datetime | None]
     last_snapshot_at: Mapped[dt.datetime | None]
     # Latest stats, denormalized from video_snapshots for fast sorting.
@@ -148,6 +157,7 @@ class Video(db.Model):
     likes: Mapped[int | None]
     comments: Mapped[int | None]
     outlier_score: Mapped[float | None]
+    outlier_baseline: Mapped[float | None]
     gone: Mapped[bool] = mapped_column(default=False)  # deleted or made private
 
     channel: Mapped[Channel] = relationship(back_populates="videos")

@@ -54,22 +54,16 @@ class ApiClient:
         return self.c.get(url, headers=self._h(kw.pop("headers", None)), **kw)
 
     def post(self, url, json=None, **kw):
-        return self.c.post(
-            url, json=json if json is not None else {}, headers=self._h(kw.pop("headers", None)), **kw
-        )
+        return self.c.post(url, json=json if json is not None else {}, headers=self._h(kw.pop("headers", None)), **kw)
 
     def put(self, url, json=None, **kw):
-        return self.c.put(
-            url, json=json if json is not None else {}, headers=self._h(kw.pop("headers", None)), **kw
-        )
+        return self.c.put(url, json=json if json is not None else {}, headers=self._h(kw.pop("headers", None)), **kw)
 
     def delete(self, url, **kw):
         return self.c.delete(url, headers=self._h(kw.pop("headers", None)), **kw)
 
     def patch(self, url, json=None, **kw):
-        return self.c.patch(
-            url, json=json if json is not None else {}, headers=self._h(kw.pop("headers", None)), **kw
-        )
+        return self.c.patch(url, json=json if json is not None else {}, headers=self._h(kw.pop("headers", None)), **kw)
 
 
 @pytest.fixture
@@ -88,3 +82,15 @@ def client(app):
 @pytest.fixture
 def runner_headers():
     return {"Authorization": f"Bearer {RUNNER_TOKEN}"}
+
+
+@pytest.fixture
+def yt(app):
+    from creator_lab import ingest
+
+    from .fake_youtube import FakeYouTube
+
+    fake = FakeYouTube()
+    ingest.set_client_factory(fake.client)
+    yield fake
+    ingest.set_client_factory(None)

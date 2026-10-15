@@ -152,6 +152,218 @@ components:
         schedules: { $ref: "#/components/schemas/Schedules" }
         disk: { $ref: "#/components/schemas/DiskReport" }
         quota: { $ref: "#/components/schemas/Quota" }
+    ChannelSummary:
+      type: object
+      required: [id, external_id, handle, title, thumbnail_url, country, followed, auto_track_new, is_mine, tags, added_at, backfilled_at, last_synced_at, sync_error, syncing, subscribers, total_views, uploads, video_count, tracked_count, videos_by_format, disk_bytes]
+      properties:
+        id: { type: integer }
+        external_id: { type: string }
+        handle: { type: [string, "null"] }
+        title: { type: string }
+        thumbnail_url: { type: [string, "null"] }
+        country: { type: [string, "null"] }
+        followed: { type: boolean, description: Daily channel stats and new-upload checks }
+        auto_track_new: { type: boolean, description: Pull new uploads automatically }
+        is_mine: { type: boolean }
+        tags: { type: array, items: { type: string } }
+        added_at: { type: [string, "null"] }
+        backfilled_at: { type: [string, "null"] }
+        last_synced_at: { type: [string, "null"] }
+        sync_error: { type: [string, "null"] }
+        syncing: { type: boolean }
+        subscribers: { type: [integer, "null"] }
+        total_views: { type: [integer, "null"] }
+        uploads: { type: [integer, "null"], description: Upload count YouTube reports }
+        video_count: { type: [integer, "null"], description: Videos stored (discovered + tracked) }
+        tracked_count: { type: integer }
+        videos_by_format:
+          type: object
+          additionalProperties: { type: integer }
+        disk_bytes: { type: integer }
+    ChannelDetail:
+      allOf:
+        - $ref: "#/components/schemas/ChannelSummary"
+        - type: object
+          required: [description, notes, uploads_playlist, published_at, url]
+          properties:
+            description: { type: [string, "null"] }
+            notes: { type: [string, "null"] }
+            uploads_playlist: { type: [string, "null"] }
+            published_at: { type: [string, "null"] }
+            url: { type: string }
+    ChannelSnapshot:
+      type: object
+      required: [captured_at, subscribers, views, video_count]
+      properties:
+        captured_at: { type: string }
+        subscribers: { type: [integer, "null"] }
+        views: { type: [integer, "null"] }
+        video_count: { type: [integer, "null"] }
+    VideoFormat:
+      type: string
+      enum: [long, short, live, premiere]
+    VideoSummary:
+      type: object
+      required: [id, external_id, channel_id, title, published_at, duration_s, format, aspect, views, likes, comments, outlier_score, outlier_baseline, thumbnail, has_thumbnail, gone, selection, tracked_at, url]
+      properties:
+        id: { type: integer }
+        external_id: { type: string }
+        channel_id: { type: integer }
+        title: { type: string }
+        published_at: { type: [string, "null"] }
+        duration_s: { type: [integer, "null"] }
+        format: { $ref: "#/components/schemas/VideoFormat" }
+        aspect: { type: [number, "null"] }
+        views: { type: [integer, "null"] }
+        likes: { type: [integer, "null"] }
+        comments: { type: [integer, "null"] }
+        outlier_score: { type: [number, "null"] }
+        outlier_baseline: { type: [number, "null"] }
+        thumbnail: { type: string }
+        has_thumbnail: { type: [boolean, "null"] }
+        gone: { type: boolean }
+        selection: { type: string, enum: [discovered, tracked] }
+        tracked_at: { type: [string, "null"] }
+        url: { type: string }
+    VideoList:
+      type: object
+      required: [videos, total]
+      properties:
+        videos: { type: array, items: { $ref: "#/components/schemas/VideoSummary" } }
+        total: { type: integer }
+    VideoSnapshot:
+      type: object
+      required: [captured_at, views, likes, comments, source]
+      properties:
+        captured_at: { type: string }
+        views: { type: [integer, "null"] }
+        likes: { type: [integer, "null"] }
+        comments: { type: [integer, "null"] }
+        source: { type: string }
+    Asset:
+      type: object
+      required: [id, kind, variant, path, bytes, width, height, codec, url, created_at]
+      properties:
+        id: { type: integer }
+        kind: { type: string }
+        variant: { type: string }
+        path: { type: string }
+        bytes: { type: [integer, "null"] }
+        width: { type: [integer, "null"] }
+        height: { type: [integer, "null"] }
+        codec: { type: [string, "null"] }
+        url: { type: string }
+        created_at: { type: [string, "null"] }
+    AnalyzerStatus:
+      type: object
+      required: [analyzer, version, title, runner_type, status, summary, error, job_id, output_path, computed_at]
+      properties:
+        analyzer: { type: string }
+        version: { type: string }
+        title: { type: string }
+        runner_type: { type: string }
+        status: { type: string, enum: [done, queued, running, failed, missing] }
+        summary: { type: object, additionalProperties: true }
+        error: { type: [string, "null"] }
+        job_id: { type: [integer, "null"] }
+        output_path: { type: [string, "null"] }
+        computed_at: { type: [string, "null"] }
+    VideoDetail:
+      type: object
+      required: [video, snapshots, assets, analyzers]
+      properties:
+        video:
+          allOf:
+            - $ref: "#/components/schemas/VideoSummary"
+            - type: object
+              required: [description, tags, category_id, language, privacy, discovered_at, last_snapshot_at, channel]
+              properties:
+                description: { type: [string, "null"] }
+                tags: { type: array, items: { type: string } }
+                category_id: { type: [string, "null"] }
+                language: { type: [string, "null"] }
+                privacy: { type: [string, "null"] }
+                discovered_at: { type: [string, "null"] }
+                last_snapshot_at: { type: [string, "null"] }
+                channel:
+                  type: object
+                  required: [id, title, handle, is_mine]
+                  properties:
+                    id: { type: integer }
+                    title: { type: string }
+                    handle: { type: [string, "null"] }
+                    is_mine: { type: boolean }
+        snapshots: { type: array, items: { $ref: "#/components/schemas/VideoSnapshot" } }
+        assets: { type: array, items: { $ref: "#/components/schemas/Asset" } }
+        analyzers: { type: array, items: { $ref: "#/components/schemas/AnalyzerStatus" } }
+    ChannelResponse:
+      type: object
+      required: [channel]
+      properties:
+        channel: { $ref: "#/components/schemas/ChannelDetail" }
+    ChannelCard:
+      type: object
+      required: [external_id, title, handle, description, thumbnail_url, subscribers, video_count, total_views, channel_id]
+      properties:
+        external_id: { type: string }
+        title: { type: string }
+        handle: { type: [string, "null"] }
+        description: { type: string }
+        thumbnail_url: { type: [string, "null"] }
+        subscribers: { type: [integer, "null"] }
+        video_count: { type: [integer, "null"] }
+        total_views: { type: [integer, "null"] }
+        channel_id: { type: [integer, "null"], description: Set when the channel is already stored }
+    DiscoverVideo:
+      allOf:
+        - $ref: "#/components/schemas/VideoSummary"
+        - type: object
+          required: [role, group]
+          properties:
+            role: { type: [string, "null"], description: "Study role, e.g. hit or flop" }
+            group: { type: [string, "null"], description: "Study group, e.g. pair 3" }
+    DiscoverVideos:
+      type: object
+      required: [videos, matching, listing]
+      properties:
+        videos: { type: array, items: { $ref: "#/components/schemas/DiscoverVideo" } }
+        matching: { type: integer, description: Videos matching the filters before top/bottom N }
+        listing:
+          type: object
+          required: [listed_at, fresh, syncing, error]
+          properties:
+            listed_at: { type: [string, "null"] }
+            fresh: { type: boolean }
+            syncing: { type: boolean }
+            error: { type: [string, "null"] }
+    PullResult:
+      type: object
+      required: [pulled, already_tracked, jobs]
+      properties:
+        pulled: { type: integer }
+        already_tracked: { type: integer }
+        jobs: { type: array, items: { type: integer } }
+        study_added: { type: integer }
+  parameters:
+    ChannelId: { name: channel_id, in: path, required: true, schema: { type: integer } }
+    VideoId: { name: video_id, in: path, required: true, schema: { type: integer } }
+    VideoListQuery:
+      name: q
+      in: query
+      schema: { type: string }
+      description: Title search
+    VideoFormatQuery: { name: format, in: query, schema: { type: string }, description: "Comma-separated formats" }
+    VideoSort:
+      name: sort
+      in: query
+      schema: { type: string, enum: [published_at, views, outlier_score, duration_s, title, likes, comments] }
+    VideoOrder: { name: order, in: query, schema: { type: string, enum: [asc, desc] } }
+    Limit: { name: limit, in: query, schema: { type: string }, description: 'Number, or "all" (max 5000)' }
+    Offset: { name: offset, in: query, schema: { type: integer } }
+    MinOutlier: { name: min_outlier, in: query, schema: { type: number } }
+    MaxOutlier: { name: max_outlier, in: query, schema: { type: number } }
+    IncludeGone: { name: include_gone, in: query, schema: { type: string, enum: ["1"] } }
+    Selection: { name: selection, in: query, schema: { type: string, enum: [discovered, tracked] } }
   responses:
     Error:
       description: Error
@@ -286,3 +498,264 @@ paths:
                 properties:
                   schedules: { $ref: "#/components/schemas/Schedules" }
         "400": { $ref: "#/components/responses/Error" }
+  /api/channels:
+    get:
+      operationId: listChannels
+      responses:
+        "200":
+          description: All channels with latest stats
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [channels]
+                properties:
+                  channels: { type: array, items: { $ref: "#/components/schemas/ChannelSummary" } }
+    post:
+      operationId: addChannel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [channel]
+              properties:
+                channel: { type: string, description: "URL, @handle or UC... id" }
+                is_mine: { type: boolean }
+                follow: { type: boolean }
+                tags: { type: array, items: { type: string } }
+                list_uploads: { type: boolean, description: List all uploads (metadata only). Default true. }
+      responses:
+        "200": &channelCreated
+          description: Channel (already existed / created). Uploads are listed in the background; nothing is downloaded.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [channel, created]
+                properties:
+                  channel: { $ref: "#/components/schemas/ChannelSummary" }
+                  created: { type: boolean }
+        "201": *channelCreated
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+        "502": { $ref: "#/components/responses/Error" }
+  /api/channels/{channel_id}:
+    parameters: [{ $ref: "#/components/parameters/ChannelId" }]
+    get:
+      operationId: getChannel
+      responses:
+        "200":
+          description: Channel
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChannelResponse" }
+        "404": { $ref: "#/components/responses/Error" }
+    patch:
+      operationId: updateChannel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                followed: { type: boolean }
+                auto_track_new: { type: boolean }
+                is_mine: { type: boolean }
+                tags: { type: array, items: { type: string } }
+                notes: { type: [string, "null"] }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChannelResponse" }
+    delete:
+      operationId: deleteChannel
+      parameters:
+        - { name: delete_files, in: query, schema: { type: string, enum: ["1"] } }
+      responses:
+        "200":
+          description: Deleted with all its videos and history
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ok" }
+  /api/channels/{channel_id}/snapshots:
+    parameters: [{ $ref: "#/components/parameters/ChannelId" }]
+    get:
+      operationId: channelSnapshots
+      responses:
+        "200":
+          description: Subscriber/view history
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [snapshots]
+                properties:
+                  snapshots: { type: array, items: { $ref: "#/components/schemas/ChannelSnapshot" } }
+  /api/channels/{channel_id}/videos:
+    parameters: [{ $ref: "#/components/parameters/ChannelId" }]
+    get:
+      operationId: channelVideos
+      parameters: &videoListParams
+        - { $ref: "#/components/parameters/VideoListQuery" }
+        - { $ref: "#/components/parameters/VideoFormatQuery" }
+        - { $ref: "#/components/parameters/VideoSort" }
+        - { $ref: "#/components/parameters/VideoOrder" }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+        - { $ref: "#/components/parameters/MinOutlier" }
+        - { $ref: "#/components/parameters/MaxOutlier" }
+        - { $ref: "#/components/parameters/IncludeGone" }
+        - { $ref: "#/components/parameters/Selection" }
+      responses:
+        "200":
+          description: Videos
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VideoList" }
+  /api/videos:
+    get:
+      operationId: listVideos
+      parameters:
+        - { name: channel_id, in: query, schema: { type: string }, description: "Comma-separated channel ids" }
+        - { name: is_mine, in: query, schema: { type: string, enum: ["1"] } }
+        - { $ref: "#/components/parameters/VideoListQuery" }
+        - { $ref: "#/components/parameters/VideoFormatQuery" }
+        - { $ref: "#/components/parameters/VideoSort" }
+        - { $ref: "#/components/parameters/VideoOrder" }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+        - { $ref: "#/components/parameters/MinOutlier" }
+        - { $ref: "#/components/parameters/MaxOutlier" }
+        - { $ref: "#/components/parameters/IncludeGone" }
+        - { $ref: "#/components/parameters/Selection" }
+      responses:
+        "200":
+          description: Videos
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VideoList" }
+  /api/videos/{video_id}:
+    parameters: [{ $ref: "#/components/parameters/VideoId" }]
+    get:
+      operationId: getVideo
+      responses:
+        "200":
+          description: Video with history, files and analyzer results
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VideoDetail" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/videos/{video_id}/refresh:
+    parameters: [{ $ref: "#/components/parameters/VideoId" }]
+    post:
+      operationId: refreshVideo
+      responses:
+        "200":
+          description: Refreshed metadata and stats (1 quota unit)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VideoDetail" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/videos/{video_id}/thumbnail:
+    parameters: [{ $ref: "#/components/parameters/VideoId" }]
+    get:
+      operationId: videoThumbnail
+      responses:
+        "200": { description: JPEG }
+        "302": { description: Redirect to YouTube's copy until it is downloaded }
+  /api/assets/{asset_id}/file:
+    parameters: [{ name: asset_id, in: path, required: true, schema: { type: integer } }]
+    get:
+      operationId: assetFile
+      description: The file, with HTTP Range support.
+      responses:
+        "200": { description: File }
+        "206": { description: Partial content }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/channels/{channel_id}/refresh:
+    parameters: [{ $ref: "#/components/parameters/ChannelId" }]
+    post:
+      operationId: refreshChannel
+      description: Re-list all uploads in the background (refreshes discovered videos). Skipped if listed in the last 6 hours unless force=1.
+      parameters:
+        - { name: force, in: query, schema: { type: string, enum: ["1"] } }
+      responses:
+        "200":
+          description: Started, already running, or still fresh
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [started, already_running, fresh]
+                properties:
+                  started: { type: boolean }
+                  already_running: { type: boolean }
+                  fresh: { type: boolean }
+  /api/discover/search:
+    get:
+      operationId: discoverSearch
+      description: Channel search. A name uses search.list (100 quota units); a URL, @handle or UC id resolves directly (1-2 units).
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, maximum: 25 } }
+      responses:
+        "200":
+          description: Matching channels
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [channels]
+                properties:
+                  channels:
+                    type: array
+                    items: { $ref: "#/components/schemas/ChannelCard" }
+        "429": { $ref: "#/components/responses/Error" }
+  /api/discover/channels/{channel_id}/videos:
+    parameters: [{ $ref: "#/components/parameters/ChannelId" }]
+    get:
+      operationId: discoverChannelVideos
+      parameters:
+        - { name: timeframe, in: query, schema: { type: string, enum: [7d, 30d, 90d, 1y, all, custom] } }
+        - { name: since, in: query, schema: { type: string, format: date } }
+        - { name: until, in: query, schema: { type: string, format: date } }
+        - { name: rank, in: query, schema: { type: string, enum: [outlier, views] } }
+        - { name: pick, in: query, schema: { type: string, enum: [top, bottom, all] } }
+        - { name: n, in: query, schema: { type: integer } }
+        - { name: formats, in: query, schema: { type: string }, description: "Comma-separated: long,short" }
+        - { name: include_live, in: query, schema: { type: string, enum: ["1"] } }
+        - { name: min_duration, in: query, schema: { type: integer } }
+        - { $ref: "#/components/parameters/Selection" }
+        - { name: study_id, in: query, schema: { type: integer }, description: Show only the videos this study's criteria would include }
+      responses:
+        "200":
+          description: Filtered uploads
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DiscoverVideos" }
+  /api/discover/pull:
+    post:
+      operationId: discoverPull
+      description: Mark videos tracked, snapshot their stats and queue download/captions jobs (1080p cap).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [video_ids]
+              properties:
+                video_ids: { type: array, items: { type: integer }, maxItems: 2000 }
+                study_id: { type: [integer, "null"], description: Also add the videos to this study }
+      responses:
+        "200":
+          description: Pulled
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PullResult" }
+        "404": { $ref: "#/components/responses/Error" }

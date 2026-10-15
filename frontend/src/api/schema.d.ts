@@ -148,6 +148,236 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/channels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listChannels"];
+        put?: never;
+        post: operations["addChannel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/channels/{channel_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channel_id: components["parameters"]["ChannelId"];
+            };
+            cookie?: never;
+        };
+        get: operations["getChannel"];
+        put?: never;
+        post?: never;
+        delete: operations["deleteChannel"];
+        options?: never;
+        head?: never;
+        patch: operations["updateChannel"];
+        trace?: never;
+    };
+    "/api/channels/{channel_id}/snapshots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channel_id: components["parameters"]["ChannelId"];
+            };
+            cookie?: never;
+        };
+        get: operations["channelSnapshots"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/channels/{channel_id}/videos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channel_id: components["parameters"]["ChannelId"];
+            };
+            cookie?: never;
+        };
+        get: operations["channelVideos"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/videos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listVideos"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/videos/{video_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                video_id: components["parameters"]["VideoId"];
+            };
+            cookie?: never;
+        };
+        get: operations["getVideo"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/videos/{video_id}/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                video_id: components["parameters"]["VideoId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["refreshVideo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/videos/{video_id}/thumbnail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                video_id: components["parameters"]["VideoId"];
+            };
+            cookie?: never;
+        };
+        get: operations["videoThumbnail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assets/{asset_id}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                asset_id: number;
+            };
+            cookie?: never;
+        };
+        /** @description The file, with HTTP Range support. */
+        get: operations["assetFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/channels/{channel_id}/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channel_id: components["parameters"]["ChannelId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Re-list all uploads in the background (refreshes discovered videos). Skipped if listed in the last 6 hours unless force=1. */
+        post: operations["refreshChannel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/discover/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Channel search. A name uses search.list (100 quota units); a URL, @handle or UC id resolves directly (1-2 units). */
+        get: operations["discoverSearch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/discover/channels/{channel_id}/videos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channel_id: components["parameters"]["ChannelId"];
+            };
+            cookie?: never;
+        };
+        get: operations["discoverChannelVideos"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/discover/pull": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Mark videos tracked, snapshot their stats and queue download/captions jobs (1080p cap). */
+        post: operations["discoverPull"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -244,6 +474,169 @@ export interface components {
             disk: components["schemas"]["DiskReport"];
             quota: components["schemas"]["Quota"];
         };
+        ChannelSummary: {
+            id: number;
+            external_id: string;
+            handle: string | null;
+            title: string;
+            thumbnail_url: string | null;
+            country: string | null;
+            /** @description Daily channel stats and new-upload checks */
+            followed: boolean;
+            /** @description Pull new uploads automatically */
+            auto_track_new: boolean;
+            is_mine: boolean;
+            tags: string[];
+            added_at: string | null;
+            backfilled_at: string | null;
+            last_synced_at: string | null;
+            sync_error: string | null;
+            syncing: boolean;
+            subscribers: number | null;
+            total_views: number | null;
+            /** @description Upload count YouTube reports */
+            uploads: number | null;
+            /** @description Videos stored (discovered + tracked) */
+            video_count: number | null;
+            tracked_count: number;
+            videos_by_format: {
+                [key: string]: number;
+            };
+            disk_bytes: number;
+        };
+        ChannelDetail: components["schemas"]["ChannelSummary"] & {
+            description: string | null;
+            notes: string | null;
+            uploads_playlist: string | null;
+            published_at: string | null;
+            url: string;
+        };
+        ChannelSnapshot: {
+            captured_at: string;
+            subscribers: number | null;
+            views: number | null;
+            video_count: number | null;
+        };
+        /** @enum {string} */
+        VideoFormat: "long" | "short" | "live" | "premiere";
+        VideoSummary: {
+            id: number;
+            external_id: string;
+            channel_id: number;
+            title: string;
+            published_at: string | null;
+            duration_s: number | null;
+            format: components["schemas"]["VideoFormat"];
+            aspect: number | null;
+            views: number | null;
+            likes: number | null;
+            comments: number | null;
+            outlier_score: number | null;
+            outlier_baseline: number | null;
+            thumbnail: string;
+            has_thumbnail: boolean | null;
+            gone: boolean;
+            /** @enum {string} */
+            selection: "discovered" | "tracked";
+            tracked_at: string | null;
+            url: string;
+        };
+        VideoList: {
+            videos: components["schemas"]["VideoSummary"][];
+            total: number;
+        };
+        VideoSnapshot: {
+            captured_at: string;
+            views: number | null;
+            likes: number | null;
+            comments: number | null;
+            source: string;
+        };
+        Asset: {
+            id: number;
+            kind: string;
+            variant: string;
+            path: string;
+            bytes: number | null;
+            width: number | null;
+            height: number | null;
+            codec: string | null;
+            url: string;
+            created_at: string | null;
+        };
+        AnalyzerStatus: {
+            analyzer: string;
+            version: string;
+            title: string;
+            runner_type: string;
+            /** @enum {string} */
+            status: "done" | "queued" | "running" | "failed" | "missing";
+            summary: {
+                [key: string]: unknown;
+            };
+            error: string | null;
+            job_id: number | null;
+            output_path: string | null;
+            computed_at: string | null;
+        };
+        VideoDetail: {
+            video: components["schemas"]["VideoSummary"] & {
+                description: string | null;
+                tags: string[];
+                category_id: string | null;
+                language: string | null;
+                privacy: string | null;
+                discovered_at: string | null;
+                last_snapshot_at: string | null;
+                channel: {
+                    id: number;
+                    title: string;
+                    handle: string | null;
+                    is_mine: boolean;
+                };
+            };
+            snapshots: components["schemas"]["VideoSnapshot"][];
+            assets: components["schemas"]["Asset"][];
+            analyzers: components["schemas"]["AnalyzerStatus"][];
+        };
+        ChannelResponse: {
+            channel: components["schemas"]["ChannelDetail"];
+        };
+        ChannelCard: {
+            external_id: string;
+            title: string;
+            handle: string | null;
+            description: string;
+            thumbnail_url: string | null;
+            subscribers: number | null;
+            video_count: number | null;
+            total_views: number | null;
+            /** @description Set when the channel is already stored */
+            channel_id: number | null;
+        };
+        DiscoverVideo: components["schemas"]["VideoSummary"] & {
+            /** @description Study role, e.g. hit or flop */
+            role: string | null;
+            /** @description Study group, e.g. pair 3 */
+            group: string | null;
+        };
+        DiscoverVideos: {
+            videos: components["schemas"]["DiscoverVideo"][];
+            /** @description Videos matching the filters before top/bottom N */
+            matching: number;
+            listing: {
+                listed_at: string | null;
+                fresh: boolean;
+                syncing: boolean;
+                error: string | null;
+            };
+        };
+        PullResult: {
+            pulled: number;
+            already_tracked: number;
+            jobs: number[];
+            study_added?: number;
+        };
     };
     responses: {
         /** @description Error */
@@ -256,7 +649,23 @@ export interface components {
             };
         };
     };
-    parameters: never;
+    parameters: {
+        ChannelId: number;
+        VideoId: number;
+        /** @description Title search */
+        VideoListQuery: string;
+        /** @description Comma-separated formats */
+        VideoFormatQuery: string;
+        VideoSort: "published_at" | "views" | "outlier_score" | "duration_s" | "title" | "likes" | "comments";
+        VideoOrder: "asc" | "desc";
+        /** @description Number, or "all" (max 5000) */
+        Limit: string;
+        Offset: number;
+        MinOutlier: number;
+        MaxOutlier: number;
+        IncludeGone: "1";
+        Selection: "discovered" | "tracked";
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
@@ -473,6 +882,474 @@ export interface operations {
                 };
             };
             400: components["responses"]["Error"];
+        };
+    };
+    listChannels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All channels with latest stats */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        channels: components["schemas"]["ChannelSummary"][];
+                    };
+                };
+            };
+        };
+    };
+    addChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description URL, @handle or UC... id */
+                    channel: string;
+                    is_mine?: boolean;
+                    follow?: boolean;
+                    tags?: string[];
+                    /** @description List all uploads (metadata only). Default true. */
+                    list_uploads?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Channel (already existed / created). Uploads are listed in the background; nothing is downloaded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        channel: components["schemas"]["ChannelSummary"];
+                        created: boolean;
+                    };
+                };
+            };
+            /** @description Channel (already existed / created). Uploads are listed in the background; nothing is downloaded. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        channel: components["schemas"]["ChannelSummary"];
+                        created: boolean;
+                    };
+                };
+            };
+            404: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            502: components["responses"]["Error"];
+        };
+    };
+    getChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channel_id: components["parameters"]["ChannelId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Channel */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelResponse"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteChannel: {
+        parameters: {
+            query?: {
+                delete_files?: "1";
+            };
+            header?: never;
+            path: {
+                channel_id: components["parameters"]["ChannelId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted with all its videos and history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
+                };
+            };
+        };
+    };
+    updateChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channel_id: components["parameters"]["ChannelId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    followed?: boolean;
+                    auto_track_new?: boolean;
+                    is_mine?: boolean;
+                    tags?: string[];
+                    notes?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelResponse"];
+                };
+            };
+        };
+    };
+    channelSnapshots: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channel_id: components["parameters"]["ChannelId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Subscriber/view history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        snapshots: components["schemas"]["ChannelSnapshot"][];
+                    };
+                };
+            };
+        };
+    };
+    channelVideos: {
+        parameters: {
+            query?: {
+                /** @description Title search */
+                q?: components["parameters"]["VideoListQuery"];
+                /** @description Comma-separated formats */
+                format?: components["parameters"]["VideoFormatQuery"];
+                sort?: components["parameters"]["VideoSort"];
+                order?: components["parameters"]["VideoOrder"];
+                /** @description Number, or "all" (max 5000) */
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                min_outlier?: components["parameters"]["MinOutlier"];
+                max_outlier?: components["parameters"]["MaxOutlier"];
+                include_gone?: components["parameters"]["IncludeGone"];
+                selection?: components["parameters"]["Selection"];
+            };
+            header?: never;
+            path: {
+                channel_id: components["parameters"]["ChannelId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Videos */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VideoList"];
+                };
+            };
+        };
+    };
+    listVideos: {
+        parameters: {
+            query?: {
+                /** @description Comma-separated channel ids */
+                channel_id?: string;
+                is_mine?: "1";
+                /** @description Title search */
+                q?: components["parameters"]["VideoListQuery"];
+                /** @description Comma-separated formats */
+                format?: components["parameters"]["VideoFormatQuery"];
+                sort?: components["parameters"]["VideoSort"];
+                order?: components["parameters"]["VideoOrder"];
+                /** @description Number, or "all" (max 5000) */
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+                min_outlier?: components["parameters"]["MinOutlier"];
+                max_outlier?: components["parameters"]["MaxOutlier"];
+                include_gone?: components["parameters"]["IncludeGone"];
+                selection?: components["parameters"]["Selection"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Videos */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VideoList"];
+                };
+            };
+        };
+    };
+    getVideo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                video_id: components["parameters"]["VideoId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Video with history, files and analyzer results */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VideoDetail"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    refreshVideo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                video_id: components["parameters"]["VideoId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Refreshed metadata and stats (1 quota unit) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VideoDetail"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    videoThumbnail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                video_id: components["parameters"]["VideoId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description JPEG */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Redirect to YouTube's copy until it is downloaded */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    assetFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                asset_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description File */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Partial content */
+            206: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    refreshChannel: {
+        parameters: {
+            query?: {
+                force?: "1";
+            };
+            header?: never;
+            path: {
+                channel_id: components["parameters"]["ChannelId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Started, already running, or still fresh */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        started: boolean;
+                        already_running: boolean;
+                        fresh: boolean;
+                    };
+                };
+            };
+        };
+    };
+    discoverSearch: {
+        parameters: {
+            query: {
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Matching channels */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        channels: components["schemas"]["ChannelCard"][];
+                    };
+                };
+            };
+            429: components["responses"]["Error"];
+        };
+    };
+    discoverChannelVideos: {
+        parameters: {
+            query?: {
+                timeframe?: "7d" | "30d" | "90d" | "1y" | "all" | "custom";
+                since?: string;
+                until?: string;
+                rank?: "outlier" | "views";
+                pick?: "top" | "bottom" | "all";
+                n?: number;
+                /** @description Comma-separated: long,short */
+                formats?: string;
+                include_live?: "1";
+                min_duration?: number;
+                selection?: components["parameters"]["Selection"];
+                /** @description Show only the videos this study's criteria would include */
+                study_id?: number;
+            };
+            header?: never;
+            path: {
+                channel_id: components["parameters"]["ChannelId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Filtered uploads */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoverVideos"];
+                };
+            };
+        };
+    };
+    discoverPull: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    video_ids: number[];
+                    /** @description Also add the videos to this study */
+                    study_id?: number | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Pulled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PullResult"];
+                };
+            };
+            404: components["responses"]["Error"];
         };
     };
 }

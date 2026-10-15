@@ -78,16 +78,12 @@ def dashboard():
     cfg = current_app.config["APP"]
     count = lambda model: db.session.scalar(db.select(func.count()).select_from(model))  # noqa: E731
     jobs_by_status = dict(db.session.execute(db.select(Job.status, func.count()).group_by(Job.status)).all())
-    videos_by_format = dict(
-        db.session.execute(db.select(Video.format, func.count()).group_by(Video.format)).all()
-    )
+    videos_by_format = dict(db.session.execute(db.select(Video.format, func.count()).group_by(Video.format)).all())
     runners = db.session.scalars(db.select(Runner).order_by(Runner.name)).all()
     failed = db.session.scalars(
         db.select(Job).where(Job.status == "failed").order_by(Job.finished_at.desc()).limit(5)
     ).all()
-    channel_errors = db.session.scalars(
-        db.select(Channel).where(Channel.sync_error.is_not(None)).limit(5)
-    ).all()
+    channel_errors = db.session.scalars(db.select(Channel).where(Channel.sync_error.is_not(None)).limit(5)).all()
     return {
         "counts": {
             "channels": count(Channel),
