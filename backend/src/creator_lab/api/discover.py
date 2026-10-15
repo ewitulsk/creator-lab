@@ -88,6 +88,23 @@ def filter_channel_videos(channel_id: int, args) -> tuple[list[Video], int]:
 def discover_channel_videos(channel_id: int):
     ch = get_channel(channel_id)
     videos, total = filter_channel_videos(channel_id, request.args)
+    roles: dict[int, object] = {}
+    study_rules = None
+    if request.args.get("study_id"):
+        # "Videos needed for study X": that study's criteria, run on this channel alone.
+        from .. import study_service
+
+        try:
+            study = study_service.get_study(int(request.args["study_id"]))
+            crit = study_service.run_criteria(study, channel_id)
+        except study_service.StudyError as err:
+            raise ApiError(str(err), err.status) from err
+        roles = {m.video_id: m for m in crit.members}
+        study_rules = crit.rules
+        wanted = set(roles)
+        videos = [v for v in db.session.scalars(db.select(Video).where(Video.id.in_(wanted)))]
+        videos.sort(key=lambda v: (roles[v.id].group or "", roles[v.id].role))
+        total = len(videos)
     thumbs = set(
         db.session.scalars(
             db.select(Asset.video_id).where(Asset.kind == "thumbnail", Asset.video_id.in_([v.id for v in videos]))
@@ -96,7 +113,15 @@ def discover_channel_videos(channel_id: int):
     from .channels import channel_stats
 
     return {
-        "videos": [video_summary(v, v.id in thumbs) | {"role": None, "group": None} for v in videos],
+        "videos": [
+            video_summary(v, v.id in thumbs)
+            | {
+                "role": roles[v.id].role if v.id in roles else None,
+                "group": roles[v.id].group if v.id in roles else None,
+            }
+            for v in videos
+        ],
+        "study_rules": study_rules,
         "matching": total,
         "listing": {
             "listed_at": iso(ch.backfilled_at),
@@ -121,4 +146,13 @@ def discover_pull():
     from ..auth import actor
 
     result = youtube_call(ingest.pull_videos, ids, created_by=actor())
+    if data.get("study_id"):
+        from .. import study_service
+
+        try:
+            study = study_service.get_study(int(data["study_id"]))
+        except study_service.StudyError as err:
+            raise ApiError(str(err), err.status) from err
+        channels = {v.channel_id for v in db.session.scalars(db.select(Video).where(Video.id.in_(ids)))}
+        result["study_added"] = study_service.add_members(study, ids, channels.pop() if len(channels) == 1 else None)
     return result

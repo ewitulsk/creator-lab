@@ -123,30 +123,10 @@ def issue_job(
         db.session.commit()
         return None
 
-    depends_on = []
-    if "media" in (analyzer.inputs or []):
-        missing = [v.id for v in videos if not has_asset(v.id, "video")]
-        if missing:
-            dl = issue_job("media", missing, created_by=created_by, priority=priority + 1)
-            if dl is not None:
-                depends_on.append(dl.id)
-            # Downloads already in flight elsewhere: wait for those jobs too.
-            media = current("media")
-            depends_on += [
-                j
-                for j in db.session.scalars(
-                    db.select(Job.id)
-                    .join(JobItem)
-                    .where(
-                        Job.analyzer_id == media.id,
-                        Job.status.in_(ACTIVE_JOB_STATUSES),
-                        JobItem.video_id.in_(missing),
-                    )
-                    .distinct()
-                )
-                if j not in depends_on
-            ]
-
+    depends_on: list[int] = []
+    for name in analyzer.inputs or []:
+        depends_on += _ensure_input(name, videos, created_by, priority)
+    depends_on = sorted(set(depends_on))
     job = Job(
         analyzer_id=analyzer.id,
         job_type=analyzer.name,
@@ -169,6 +149,70 @@ def issue_job(
     db.session.commit()
     log.info("issued %s job #%d for %d videos", analyzer.name, job.id, len(videos))
     return job
+
+
+def _done_video_ids(analyzer: Analyzer, video_ids: list[int]) -> set[int]:
+    return set(
+        db.session.scalars(
+            db.select(AnalysisResult.video_id).where(
+                AnalysisResult.analyzer_id == analyzer.id,
+                AnalysisResult.status == "done",
+                AnalysisResult.video_id.in_(video_ids),
+            )
+        )
+    )
+
+
+def _active_jobs_for(analyzer: Analyzer, video_ids: list[int]) -> list[int]:
+    return list(
+        db.session.scalars(
+            db.select(Job.id)
+            .join(JobItem)
+            .where(Job.analyzer_id == analyzer.id, Job.status.in_(ACTIVE_JOB_STATUSES), JobItem.video_id.in_(video_ids))
+            .distinct()
+        )
+    )
+
+
+def _ensure_input(name: str, videos: list[Video], created_by: str, priority: int) -> list[int]:
+    """Make sure an input exists or is on its way. Returns the job ids to wait for.
+
+    media / analyzer outputs: issue the producing job for videos missing it (and wait for
+    jobs already producing it). thumbnail: fetched in-app right now (small).
+    """
+    if name == "thumbnail":
+        from .ingest import fetch_thumbnail
+
+        for v in videos:
+            if not has_asset(v.id, "thumbnail"):
+                try:
+                    fetch_thumbnail(v)
+                except Exception as err:  # the job reports the missing input per video
+                    log.warning("thumbnail fetch failed for %s: %s", v.external_id, err)
+        db.session.commit()
+        return []
+    if name == "title_text" or name == "captions":
+        return []
+    try:
+        producer = current(name)
+    except KeyError:
+        return []
+    if producer.runner_type == "builtin":
+        return []
+    ids = [v.id for v in videos]
+    if name == "media":
+        missing = [v.id for v in videos if not has_asset(v.id, "video")]
+    else:
+        done = _done_video_ids(producer, ids)
+        missing = [i for i in ids if i not in done]
+    if not missing:
+        return []
+    waits = []
+    job = issue_job(name, missing, created_by=created_by, priority=priority + 1)
+    if job is not None:
+        waits.append(job.id)
+    waits += [j for j in _active_jobs_for(producer, missing) if j not in waits]
+    return waits
 
 
 def queue_media_jobs(video_ids: list[int], created_by: str = "system") -> list[Job]:
@@ -289,10 +333,26 @@ def item_payload(job: Job, item: JobItem) -> dict:
     for a in sorted(v.assets, key=lambda a: a.variant != ""):  # unvariant (default) copy first
         assets.setdefault(a.kind, a)
     inputs = {}
-    for name in [*(job.analyzer.inputs or []), "title_text", "thumbnail", "media"]:
+    for name in [*(job.analyzer.inputs or []), "title_text", "thumbnail", "media", "captions"]:
         kind = INPUT_ASSET.get(name)
-        a = assets.get(kind) if kind else None
-        inputs[name] = input_ref(absolute(a.path)) if a else None
+        if kind:
+            a = assets.get(kind)
+            inputs[name] = input_ref(absolute(a.path)) if a else None
+            continue
+        # Another analyzer's output folder (e.g. tribe_video for tribe_engagement).
+        try:
+            producer = current(name)
+        except KeyError:
+            inputs[name] = None
+            continue
+        row = db.session.scalar(
+            db.select(AnalysisResult).where(
+                AnalysisResult.video_id == v.id,
+                AnalysisResult.analyzer_id == producer.id,
+                AnalysisResult.status == "done",
+            )
+        )
+        inputs[name] = input_ref(absolute(row.output_path)) if row and row.output_path else None
     if job.job_type in ("media", "captions", "heatmap"):
         out = media_dir(ch.external_id, v.external_id)
     else:

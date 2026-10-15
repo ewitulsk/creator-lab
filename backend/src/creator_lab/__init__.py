@@ -75,7 +75,35 @@ def create_app(cfg: Config | None = None) -> Flask:
 
     app.register_blueprint(api_bp)
     app.register_blueprint(spa_bp)
+    check_redirect_uri(cfg)
     return app
+
+
+OAUTH_CALLBACK_PATH = "/api/youtube/oauth/callback"
+
+
+def redirect_uri_problem(uri: str | None) -> str | None:
+    """Why GOOGLE_OAUTH_REDIRECT_URI won't work, or None if it looks right."""
+    import urllib.parse
+
+    from .config import is_set
+
+    if not is_set(uri):
+        return None  # not configured; Settings says so
+    parsed = urllib.parse.urlparse(uri.strip())
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return f"GOOGLE_OAUTH_REDIRECT_URI is not an absolute http(s) URL: {uri!r}"
+    if parsed.path != OAUTH_CALLBACK_PATH:
+        return f"GOOGLE_OAUTH_REDIRECT_URI path is {parsed.path!r}; it must be {OAUTH_CALLBACK_PATH!r}"
+    if parsed.query or parsed.fragment:
+        return "GOOGLE_OAUTH_REDIRECT_URI must not have a query string or fragment"
+    return None
+
+
+def check_redirect_uri(cfg: Config) -> None:
+    problem = redirect_uri_problem(cfg.google_redirect_uri)
+    if problem:
+        logging.getLogger("creator_lab").warning("%s (sign-in with YouTube will fail)", problem)
 
 
 def setup_logging(level: int = logging.INFO, logfile: Path | None = None) -> None:

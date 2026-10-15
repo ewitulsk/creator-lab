@@ -63,3 +63,53 @@ HEATMAP = register(
         output_format="info.json + tables",
     )
 )
+
+VISUAL_FEATURES = register(
+    Spec(
+        name="visual_features",
+        version="1",
+        title="Visual features",
+        runner_type="cpu",
+        description="Per-second shot cuts, motion, edge density, brightness, saturation, colorfulness and faces; "
+        "summary cuts per minute, shot length, resolution, length.",
+        inputs=["media"],
+        output_format="visual_features.json",
+    )
+)
+AUDIO_FEATURES = register(
+    Spec(
+        name="audio_features",
+        version="1",
+        title="Audio features",
+        runner_type="cpu",
+        description="Per-second loudness (LUFS, dBFS), spectral flatness, music score (heuristic) and speech "
+        "(from captions); summary integrated loudness, speech ratio and speech rate.",
+        inputs=["media"],
+        output_format="audio_features.json",
+    )
+)
+RESMEM = register(
+    Spec(
+        name="resmem",
+        version="1",
+        title="Thumbnail memorability",
+        runner_type="cpu",
+        description="ResMem memorability score of the thumbnail (needs the runner's resmem extra).",
+        inputs=["thumbnail"],
+        output_format="resmem.json",
+    )
+)
+TRIBE_ENGAGEMENT = register(
+    Spec(
+        name="tribe_engagement",
+        version="1",
+        title="TRIBE engagement",
+        runner_type="cpu",
+        description="From TRIBE preds: per-region curves (vertex z-scored over time, averaged, global signal "
+        "regressed out) on Yeo-7 networks and HCP-MMP1 areas; stimulus drive, engagement index "
+        "(attention minus default mode, draft) and anterior insula.",
+        inputs=["tribe_video"],
+        output_format="engagement.json",
+        applies_to=["long", "short"],
+    )
+)

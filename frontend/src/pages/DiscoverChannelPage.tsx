@@ -5,6 +5,7 @@ import { useChannel, useRefreshChannel } from "@/api/channels";
 import type { Schemas } from "@/api/client";
 import { DEFAULT_FILTERS, type DiscoverFilters, estimateBytes, useDiscoverVideos, usePull } from "@/api/discover";
 import { useSettings } from "@/api/queries";
+import { useStudies } from "@/api/studies";
 import { FormatBadge, OutlierBadge } from "@/components/badges";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,8 +32,23 @@ type Video = Schemas["DiscoverVideo"];
 
 function Filters({ value, onChange }: { value: DiscoverFilters; onChange: (f: DiscoverFilters) => void }) {
   const set = (patch: Partial<DiscoverFilters>) => onChange({ ...value, ...patch });
+  const studies = useStudies();
   return (
     <div className="flex flex-wrap items-end gap-4">
+      <div className="flex flex-col gap-1">
+        <Label className="text-xs text-muted-foreground">Videos needed for</Label>
+        <Select
+          value={value.study_id ?? ""}
+          onChange={(e) => set({ study_id: e.target.value ? Number(e.target.value) : undefined })}
+        >
+          <option value="">Any (use the filters)</option>
+          {studies.data?.studies.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.title} (v{s.version})
+            </option>
+          ))}
+        </Select>
+      </div>
       <div className="flex flex-col gap-1">
         <Label className="text-xs text-muted-foreground">Uploaded</Label>
         <Select value={value.timeframe} onChange={(e) => set({ timeframe: e.target.value as DiscoverFilters["timeframe"] })}>
@@ -161,6 +177,7 @@ export function DiscoverChannelPage() {
   const pull = usePull();
   const settings = useSettings();
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [addToStudy, setAddToStudy] = useState(false);
 
   const list = useMemo(() => videos.data?.videos ?? [], [videos.data]);
   const byId = useMemo(() => new Map(list.map((v) => [v.id, v])), [list]);
@@ -210,6 +227,7 @@ export function DiscoverChannelPage() {
         </div>
       </div>
       {listing?.error ? <Alert tone="destructive" className="mb-4">Listing failed: {listing.error}</Alert> : null}
+      {videos.data?.study_rules ? <Alert className="mb-4">{videos.data.study_rules}</Alert> : null}
 
       <Card className="mb-4">
         <CardContent className="p-4">
@@ -238,10 +256,18 @@ export function DiscoverChannelPage() {
             {Math.ceil(toPull.length / 50) === 1 ? "" : "s"}
           </span>
         ) : null}
+        {filters.study_id ? (
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={addToStudy} onChange={(e) => setAddToStudy(e.target.checked)} /> also add to the study
+          </label>
+        ) : null}
         <Button
           disabled={toPull.length === 0 || pull.isPending}
           onClick={() =>
-            pull.mutate({ video_ids: toPull.map((v) => v.id) }, { onSuccess: () => setSelected(new Set()) })
+            pull.mutate(
+              { video_ids: toPull.map((v) => v.id), study_id: addToStudy && filters.study_id ? filters.study_id : null },
+              { onSuccess: () => setSelected(new Set()) },
+            )
           }
         >
           <Download /> {pull.isPending ? "Pulling…" : `Pull ${toPull.length || ""} selected`}
@@ -250,7 +276,8 @@ export function DiscoverChannelPage() {
       {pull.data ? (
         <Alert className="mb-3">
           Pulled {pull.data.pulled} video{pull.data.pulled === 1 ? "" : "s"}
-          {pull.data.jobs.length ? ` and queued ${pull.data.jobs.length} jobs` : ""}. They now get stats snapshots on schedule.
+          {pull.data.jobs.length ? ` and queued ${pull.data.jobs.length} jobs` : ""}
+          {pull.data.study_added ? `, added ${pull.data.study_added} to the study` : ""}. They now get stats snapshots on schedule.
         </Alert>
       ) : null}
       {pull.error ? <Alert tone="destructive" className="mb-3">{pull.error.message}</Alert> : null}

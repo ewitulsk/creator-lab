@@ -86,9 +86,15 @@ def owner_status():
     from flask import current_app
 
     creds = db.session.scalars(db.select(OwnerCredential).order_by(OwnerCredential.id)).all()
+    from .. import OAUTH_CALLBACK_PATH, redirect_uri_problem
+
+    uri = current_app.config["APP"].google_redirect_uri
     return {
         "configured": oauth.is_configured(),
-        "redirect_uri": current_app.config["APP"].google_redirect_uri if oauth.is_configured() else None,
+        # Not secret: shown so a mismatch with the Google console is easy to spot.
+        "redirect_uri": uri if uri and uri.strip() not in ("", "paste-your-key-here") else None,
+        "redirect_uri_problem": redirect_uri_problem(uri),
+        "callback_path": OAUTH_CALLBACK_PATH,
         "scopes": oauth.SCOPES,
         "credentials": [credential_json(c) for c in creds],
     }
@@ -208,6 +214,28 @@ def tribe_engagement_curve(video: Video) -> dict | None:
     from ..analyzers import current
     from ..models import AnalysisResult
 
+    try:
+        eng_analyzer = current("tribe_engagement")
+        eng = db.session.scalar(
+            db.select(AnalysisResult).where(
+                AnalysisResult.video_id == video.id,
+                AnalysisResult.analyzer_id == eng_analyzer.id,
+                AnalysisResult.status == "done",
+            )
+        )
+    except KeyError:
+        eng = None
+    if eng is not None and eng.output_path and absolute(eng.output_path).is_file():
+        doc = json.loads(absolute(eng.output_path).read_text(encoding="utf-8"))
+        curve = (doc.get("curves") or {}).get("engagement_index")
+        if curve:
+            return {
+                "t": doc.get("t") or list(range(len(curve))),
+                "engagement": curve,
+                "networks": doc.get("yeo7") or {},
+                "definition": "tribe_engagement@1: mean(dorsal, ventral attention) - default mode, "
+                "global signal removed",
+            }
     try:
         analyzer = current("tribe_video")
     except KeyError:

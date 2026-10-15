@@ -326,8 +326,9 @@ components:
             group: { type: [string, "null"], description: "Study group, e.g. pair 3" }
     DiscoverVideos:
       type: object
-      required: [videos, matching, listing]
+      required: [videos, matching, listing, study_rules]
       properties:
+        study_rules: { type: [string, "null"], description: The study criteria rendered for this channel when study_id is given }
         videos: { type: array, items: { $ref: "#/components/schemas/DiscoverVideo" } }
         matching: { type: integer, description: Videos matching the filters before top/bottom N }
         listing:
@@ -625,7 +626,84 @@ components:
                 engagement: { type: array, items: { type: [number, "null"] } }
                 networks: { type: object, additionalProperties: { type: array, items: { type: [number, "null"] } } }
                 definition: { type: string }
+    StudySummary:
+      type: object
+      required: [id, slug, version, title, summary, status, locked_at, locked_by, members, last_result_at, analyzing]
+      properties:
+        id: { type: integer }
+        slug: { type: string }
+        version: { type: integer }
+        title: { type: string }
+        summary: { type: string }
+        status: { type: string, enum: [draft, locked, collecting, analyzed] }
+        locked_at: { type: [string, "null"] }
+        locked_by: { type: [string, "null"] }
+        members: { type: integer }
+        last_result_at: { type: [string, "null"] }
+        analyzing: { type: boolean }
+    StudyDetail:
+      allOf:
+        - $ref: "#/components/schemas/StudySummary"
+        - type: object
+          required: [methodology_md, params, measures, requires, module, locked_hash, drift, selection]
+          properties:
+            methodology_md: { type: string }
+            params: { type: object, additionalProperties: true }
+            measures: { type: array, items: { type: object, additionalProperties: true } }
+            requires: { type: array, items: { type: string } }
+            module: { type: string }
+            locked_hash: { type: [string, "null"] }
+            drift:
+              type: object
+              required: [changed, current_hash]
+              properties:
+                changed: { type: boolean }
+                current_hash: { type: [string, "null"] }
+            selection:
+              oneOf:
+                - type: "null"
+                - type: object
+                  required: [rules, stats, at]
+                  properties:
+                    rules: { type: string }
+                    stats: { type: object, additionalProperties: true }
+                    at: { type: string }
+    StudyMemberInfo:
+      type: object
+      required: [video_id, title, channel_id, role, group, reason, selection, outlier_score, duration_s, requirements, complete]
+      properties:
+        video_id: { type: integer }
+        title: { type: string }
+        channel_id: { type: integer }
+        role: { type: string }
+        group: { type: [string, "null"] }
+        reason: { type: [string, "null"] }
+        selection: { type: string }
+        outlier_score: { type: [number, "null"] }
+        duration_s: { type: [integer, "null"] }
+        requirements: { type: object, additionalProperties: { type: string } }
+        complete: { type: boolean }
+    StudyCompleteness:
+      type: object
+      required: [requirements, members, complete, missing_cells]
+      properties:
+        requirements: { type: array, items: { type: string } }
+        members: { type: array, items: { $ref: "#/components/schemas/StudyMemberInfo" } }
+        complete: { type: integer }
+        missing_cells: { type: integer }
+    StudyResultInfo:
+      type: object
+      required: [id, code_version, module_hash, n_members, computed_at, results, figures]
+      properties:
+        id: { type: integer }
+        code_version: { type: string }
+        module_hash: { type: [string, "null"] }
+        n_members: { type: [integer, "null"] }
+        computed_at: { type: [string, "null"] }
+        results: { type: object, additionalProperties: true }
+        figures: { type: array, items: { type: string } }
   parameters:
+    StudyId: { name: study_id, in: path, required: true, schema: { type: integer } }
     JobId: { name: job_id, in: path, required: true, schema: { type: integer } }
     RunnerIdHeader: { name: X-Runner-Id, in: header, schema: { type: string }, description: The calling runner's id; mismatches get 409 }
     ChannelId: { name: channel_id, in: path, required: true, schema: { type: integer } }
@@ -1426,10 +1504,12 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [configured, redirect_uri, scopes, credentials]
+                required: [configured, redirect_uri, redirect_uri_problem, callback_path, scopes, credentials]
                 properties:
                   configured: { type: boolean }
-                  redirect_uri: { type: [string, "null"] }
+                  redirect_uri: { type: [string, "null"], description: GOOGLE_OAUTH_REDIRECT_URI (not secret) }
+                  redirect_uri_problem: { type: [string, "null"] }
+                  callback_path: { type: string }
                   scopes: { type: array, items: { type: string } }
                   credentials: { type: array, items: { $ref: "#/components/schemas/OwnerCredentialInfo" } }
   /api/youtube/oauth/start:
@@ -1653,4 +1733,136 @@ paths:
           content:
             application/octet-stream:
               schema: { type: string, format: binary }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/studies:
+    get:
+      operationId: listStudies
+      responses:
+        "200":
+          description: Every study and version
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [studies]
+                properties:
+                  studies: { type: array, items: { $ref: "#/components/schemas/StudySummary" } }
+  /api/studies/{study_id}:
+    parameters: [{ $ref: "#/components/parameters/StudyId" }]
+    get:
+      operationId: getStudy
+      responses:
+        "200":
+          description: Study with methodology, completeness and recent results
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [study, completeness, results]
+                properties:
+                  study: { $ref: "#/components/schemas/StudyDetail" }
+                  completeness: { $ref: "#/components/schemas/StudyCompleteness" }
+                  results: { type: array, items: { $ref: "#/components/schemas/StudyResultInfo" } }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/studies/{study_id}/select:
+    parameters: [{ $ref: "#/components/parameters/StudyId" }]
+    post:
+      operationId: selectStudyMembers
+      description: Run the study's criteria and replace its members (manual members are kept).
+      responses:
+        "200":
+          description: Selection
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [members, rules, stats]
+                properties:
+                  members: { type: integer }
+                  rules: { type: string }
+                  stats: { type: object, additionalProperties: true }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/studies/{study_id}/lock:
+    parameters: [{ $ref: "#/components/parameters/StudyId" }]
+    post:
+      operationId: lockStudy
+      description: Freeze methodology, criteria and measures; store the module's source hash.
+      responses:
+        "200":
+          description: Locked
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [study]
+                properties:
+                  study: { $ref: "#/components/schemas/StudySummary" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/studies/{study_id}/new-version:
+    parameters: [{ $ref: "#/components/parameters/StudyId" }]
+    post:
+      operationId: newStudyVersion
+      responses:
+        "200":
+          description: The new draft version
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [study]
+                properties:
+                  study: { $ref: "#/components/schemas/StudySummary" }
+  /api/studies/{study_id}/fill-gaps:
+    parameters: [{ $ref: "#/components/parameters/StudyId" }]
+    post:
+      operationId: fillStudyGaps
+      description: Pull discovered members and issue jobs for every missing requirement.
+      responses:
+        "200":
+          description: What was issued
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [pulled, jobs, nothing_to_do]
+                properties:
+                  pulled: { type: integer }
+                  jobs: { type: array, items: { type: integer } }
+                  nothing_to_do: { type: array, items: { type: string } }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/studies/{study_id}/analyze:
+    parameters: [{ $ref: "#/components/parameters/StudyId" }]
+    post:
+      operationId: analyzeStudy
+      description: Run the study's pre-registered analysis in the background.
+      responses:
+        "200":
+          description: Started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [study, started]
+                properties:
+                  study: { $ref: "#/components/schemas/StudySummary" }
+                  started: { type: boolean }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/studies/{study_id}/members.csv:
+    parameters: [{ $ref: "#/components/parameters/StudyId" }]
+    get:
+      operationId: studyMembersCsv
+      responses:
+        "200": { description: CSV, content: { text/csv: { schema: { type: string } } } }
+  /api/studies/{study_id}/members.parquet:
+    parameters: [{ $ref: "#/components/parameters/StudyId" }]
+    get:
+      operationId: studyMembersParquet
+      responses:
+        "200": { description: Parquet, content: { application/octet-stream: { schema: { type: string, format: binary } } } }
+  /api/studies/{study_id}/figures/{name}:
+    parameters: [{ $ref: "#/components/parameters/StudyId" }, { name: name, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: studyFigure
+      responses:
+        "200": { description: PNG }
         "404": { $ref: "#/components/responses/Error" }

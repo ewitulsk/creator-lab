@@ -73,6 +73,10 @@ export function OwnerSyncCard() {
           </Alert>
         ) : (
           <>
+            {data.redirect_uri_problem ? <Alert tone="destructive">{data.redirect_uri_problem}</Alert> : null}
+            <p className="text-xs text-muted-foreground">
+              Redirect URI (must match the Google console exactly): <code>{data.redirect_uri}</code>
+            </p>
             {error ? <Alert tone="destructive">Sign-in failed: {error}</Alert> : null}
             {data.credentials.length === 0 ? (
               <Button onClick={() => signIn.mutate()} disabled={signIn.isPending}>

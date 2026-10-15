@@ -188,3 +188,30 @@ def test_wrong_secret_key_requires_sign_in(client, anon, google, app):
     with pytest.raises(oauth.ReauthRequired):
         oauth.decrypt(cred.refresh_token_enc)
     _ = ingest  # keep import used
+
+
+@pytest.mark.parametrize(
+    "uri,problem",
+    [
+        ("http://localhost:5050/api/youtube/oauth/callback", None),
+        ("http://localhost:5050/api/youtube/oauth/callbac", "path"),
+        ("localhost:5050/api/youtube/oauth/callback", "absolute"),
+        ("http://localhost:5050/api/youtube/oauth/callback?x=1", "query"),
+        ("paste-your-key-here", None),
+    ],
+)
+def test_redirect_uri_validation(uri, problem):
+    from creator_lab import redirect_uri_problem
+
+    found = redirect_uri_problem(uri)
+    assert (found is None) == (problem is None)
+    if problem:
+        assert problem in found
+
+
+def test_owner_status_shows_redirect_uri(client, google, app):
+    status = client.get("/api/youtube/owner").json
+    assert status["redirect_uri"] == "http://localhost:5050/api/youtube/oauth/callback"
+    assert status["redirect_uri_problem"] is None and status["callback_path"] == "/api/youtube/oauth/callback"
+    app.config["APP"].google_redirect_uri = "http://localhost:5050/api/youtube/oauth/callbac"
+    assert "must be" in client.get("/api/youtube/owner").json["redirect_uri_problem"]

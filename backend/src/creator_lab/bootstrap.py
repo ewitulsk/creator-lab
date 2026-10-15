@@ -43,3 +43,9 @@ def bootstrap(cfg: Config) -> None:
 
     ensure_analyzers()
     ensure_admin(cfg)
+    from .study_service import sync_studies
+
+    try:
+        sync_studies()
+    except Exception:  # a broken study module must not stop the app
+        log.exception("could not load study modules")

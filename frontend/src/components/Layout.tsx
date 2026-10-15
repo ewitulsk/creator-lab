@@ -1,5 +1,5 @@
 import { Link, Outlet } from "@tanstack/react-router";
-import { Activity, BarChart3, Compass, Gauge, Grid3x3, LogOut, type LucideIcon, Settings, Tv } from "lucide-react";
+import { Activity, BarChart3, Compass, FlaskConical, Gauge, Grid3x3, LogOut, type LucideIcon, Settings, Tv } from "lucide-react";
 import { useLogout, useMe } from "@/api/queries";
 import { Button } from "@/components/ui/button";
 
@@ -11,6 +11,7 @@ export const NAV: NavItem[] = [
   { to: "/channels", label: "Channels", icon: Tv },
   { to: "/coverage", label: "Coverage", icon: Grid3x3 },
   { to: "/jobs", label: "Jobs", icon: Activity },
+  { to: "/studies", label: "Studies", icon: FlaskConical },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 

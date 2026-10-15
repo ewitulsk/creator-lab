@@ -4,8 +4,15 @@ version = "0.1.0"
 description = "creator-lab runners: CPU jobs (downloads, captions, features). The TRIBE runner uses BrainThing's venv."
 requires-python = ">=3.12"
 dependencies = [
+    "nibabel>=5.4.2",
+    "numpy>=2.5.4",
+    "opencv-python-headless>=5.0.0.93",
     "yt-dlp==2026.8.19",  # pinned: YouTube changes often; bump deliberately,
 ]
+
+[project.optional-dependencies]
+# ResMem thumbnail memorability (PyTorch on CPU): uv sync --project runners --extra resmem
+resmem = ["resmem"]
 
 [tool.uv]
 package = false

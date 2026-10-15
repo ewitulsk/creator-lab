@@ -332,6 +332,10 @@ export as CSV or Parquet.
   - the anterior insula is expected to be negative (Tong et al. 2020)
   - curve definitions and lags are pre-registered but left **unlocked** for Evan to approve
   - the Discover "videos needed for study X" filter works for this study too
+- Notes from the build: NAcc is not available (no subcortical TRIBE v2 checkpoint has been
+  released). Yeo-7 comes from the FreeSurfer fsaverage5 annotation when it can be fetched,
+  otherwise from an HCP-MMP1 approximation (recorded per result). ResMem needs the
+  runner's optional esmem extra. See [docs/studies.md](studies.md).
 
 ## Auth and config
 

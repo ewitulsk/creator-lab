@@ -10,6 +10,8 @@ import { JobDetailPage } from "@/pages/JobDetailPage";
 import { JobsPage } from "@/pages/JobsPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { SettingsPage } from "@/pages/SettingsPage";
+import { StudiesPage } from "@/pages/StudiesPage";
+import { StudyDetailPage } from "@/pages/StudyDetailPage";
 import { VideoDetailPage } from "@/pages/VideoDetailPage";
 
 const rootRoute = createRootRoute({ component: AuthGate, notFoundComponent: NotFoundPage });
@@ -25,6 +27,8 @@ export const routeTree = rootRoute.addChildren([
   createRoute({ getParentRoute, path: "/coverage", component: CoveragePage }),
   createRoute({ getParentRoute, path: "/jobs", component: JobsPage }),
   createRoute({ getParentRoute, path: "/jobs/$jobId", component: JobDetailPage }),
+  createRoute({ getParentRoute, path: "/studies", component: StudiesPage }),
+  createRoute({ getParentRoute, path: "/studies/$studyId", component: StudyDetailPage }),
   createRoute({ getParentRoute, path: "/settings", component: SettingsPage }),
 ]);
 export const router = createRouter({ routeTree, defaultPreload: "intent" });
