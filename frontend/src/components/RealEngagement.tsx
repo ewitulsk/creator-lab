@@ -1,9 +1,11 @@
 import * as Plot from "@observablehq/plot";
 import { useMemo, useState } from "react";
+import type { LeverMarker } from "@/api/levers";
 import { useEngagement, useHeatmap } from "@/api/owner";
 import { PlotFigure } from "@/components/PlotFigure";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Select, Spinner, Table, TBody, TD, TH, THead, TR } from "@/components/ui/primitives";
 import { fmtDuration, fmtInt } from "@/lib/format";
+import { leverMarks } from "@/lib/leverMarks";
 
 const AUDIENCE_COLORS: Record<string, string> = {
   ALL: "var(--color-primary)",
@@ -70,7 +72,7 @@ const LIFETIME_LABELS: Record<string, string> = {
 };
 
 /** Owner analytics for one video: retention curve(s), TRIBE overlay, lifetime, daily, breakdowns. */
-export function RealEngagement({ videoId }: { videoId: number }) {
+export function RealEngagement({ videoId, markers }: { videoId: number; markers?: LeverMarker[] }) {
   const [syncId, setSyncId] = useState<number | undefined>(undefined);
   const { data, isLoading } = useEngagement(videoId, syncId);
   const heatmap = useHeatmap(videoId);
@@ -88,10 +90,14 @@ export function RealEngagement({ videoId }: { videoId: number }) {
       color: { domain: Object.keys(AUDIENCE_COLORS), range: Object.values(AUDIENCE_COLORS), legend: true },
       marks: [
         Plot.line(rows, { x: "x", y: "watch_ratio", stroke: "audience", curve: "monotone-x" }),
+        // Gemini lever markers only fit a seconds axis
+        ...(rows.some((r) => r.seconds !== null && r.seconds !== undefined)
+          ? leverMarks(markers, Math.max(1, ...rows.map((r) => r.watch_ratio ?? 0)))
+          : []),
         Plot.tip(rows, Plot.pointerX({ x: "x", y: "watch_ratio", title: (d) => `${d.audience} ${fmtDuration(d.x)}: ${d.watch_ratio}` })),
       ],
     } as Plot.PlotOptions;
-  }, [data]);
+  }, [data, markers]);
 
   const overlayPlot = useMemo(() => {
     if (!data) return null;

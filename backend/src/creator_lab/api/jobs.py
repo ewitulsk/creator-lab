@@ -413,6 +413,22 @@ def coverage():
     for vid, aid, status, job_id in rows:
         if aid in by_id:
             cells.setdefault(vid, {})[by_id[aid].name] = {"status": status, "job_id": job_id}
+    # Lever x method columns: the latest aggregate score per (lever, method) and video.
+    from ..models import LeverScore
+
+    lever_cells: dict[int, dict[str, dict]] = {}
+    lever_keys: set[tuple[str, str]] = set()
+    for s in db.session.scalars(
+        db.select(LeverScore)
+        .where(LeverScore.video_id.in_([v.id for v in videos]), LeverScore.run_idx.is_(None))
+        .order_by(LeverScore.created_at)
+    ):
+        lever_keys.add((s.lever, s.method))
+        lever_cells.setdefault(s.video_id, {})[f"{s.lever}:{s.method}"] = {
+            "score": s.score,
+            "spread": s.spread,
+            "flags": s.flags or [],
+        }
     out = []
     for v in videos:
         row = {}
@@ -430,6 +446,7 @@ def coverage():
                 "published_at": iso(v.published_at),
                 "selection": v.selection,
                 "cells": row,
+                "levers": lever_cells.get(v.id, {}),
             }
         )
     return {
@@ -437,5 +454,15 @@ def coverage():
             {"name": a.name, "version": a.version, "title": a.title, "runner_type": a.runner_type} for a in analyzers
         ],
         "videos": out,
+        "lever_columns": [
+            {"key": f"{lv}:{m}", "lever": lv, "method": m}
+            for m, lv in sorted(
+                {(m, lv) for lv, m in lever_keys},
+                key=lambda x: (x[0], LEVER_ORDER.index(x[1]) if x[1] in LEVER_ORDER else 99),
+            )
+        ],
         "total": total,
     }
+
+
+LEVER_ORDER = ["attention", "emotion", "comprehension", "valuable", "memorable", "shareable"]

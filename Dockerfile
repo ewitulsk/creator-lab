@@ -26,6 +26,7 @@ RUN mkdir -p backend/src/creator_lab && touch backend/src/creator_lab/__init__.p
     && uv sync --project backend --locked --no-dev --no-install-project
 COPY backend/ backend/
 COPY studies/ studies/
+COPY rubrics/ rubrics/
 COPY results/README.md results/README.md
 RUN uv sync --project backend --locked --no-dev
 COPY --from=frontend /app/frontend/dist frontend/dist

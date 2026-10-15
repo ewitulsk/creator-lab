@@ -17,7 +17,7 @@ class Spec:
     name: str
     version: str
     title: str
-    runner_type: str  # builtin (computed in-app) | cpu | gpu
+    runner_type: str  # builtin (computed in-app) | cpu | gpu | api (in-app worker, e.g. Gemini)
     description: str
     inputs: list[str] = field(default_factory=list)
     output_format: str = "json"

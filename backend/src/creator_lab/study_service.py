@@ -202,6 +202,17 @@ class DBStore:
             for p in rows
         ]
 
+    def lever_scores(self, video_ids=None, *, kind: str = "aggregate", method: str | None = None) -> list[dict]:
+        """Lever scores, one row per lever: kind 'aggregate' (median + spread), 'run' or 'all'."""
+        from .levers.service import export_rows
+
+        rows = export_rows(list(video_ids) if video_ids else None)
+        if kind != "all":
+            rows = [r for r in rows if r["kind"] == kind]
+        if method:
+            rows = [r for r in rows if r["method"] == method]
+        return rows
+
     def heatmap(self, video_id: int) -> list[dict]:
         cap = db.session.scalar(
             db.select(VideoInfoCapture)

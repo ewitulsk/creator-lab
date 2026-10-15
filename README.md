@@ -48,6 +48,14 @@ The Jobs page shows every job, which runner holds it and its live stage, video a
 percent. See [runners/README.md](runners/README.md), and
 [docs/tribe-timing.md](docs/tribe-timing.md) for how TRIBE rows map to seconds.
 
+## Viral levers (Gemini)
+
+Each video can be scored on six levers (attention, emotion, comprehension, valuable,
+memorable, shareable) by Gemini watching a blinded low-res copy, against the editable
+rubric in `rubrics/levers_v1.yaml`. Set `GEMINI_API_KEY` in `backend/.env`, pick the model
+in Settings, and start batches from Coverage, a video page, a study or Compare (each shows
+a cost estimate first). See [docs/levers.md](docs/levers.md).
+
 ## Docker (optional)
 
 The app and the CPU runner also run in containers; the TRIBE runner stays on the GPU host.

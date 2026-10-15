@@ -2,6 +2,7 @@ import { CheckCircle2, XCircle } from "lucide-react";
 import { useState } from "react";
 import type { Schemas } from "@/api/client";
 import { DataCard } from "@/components/DataCard";
+import { LeversCard } from "@/components/LeversCard";
 import { OwnerSyncCard } from "@/components/OwnerSyncCard";
 import { useChangePassword, useSaveSchedules, useSettings } from "@/api/queries";
 import { Button } from "@/components/ui/button";
@@ -140,6 +141,8 @@ function SettingsView({ data }: { data: Schemas["Settings"] }) {
           </form>
         </CardContent>
       </Card>
+
+      <LeversCard />
 
       <DataCard intervalHours={data.schedules.backup_interval_hours} keep={data.schedules.backups_to_keep} />
 

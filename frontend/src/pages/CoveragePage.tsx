@@ -3,6 +3,7 @@ import { Play } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useChannels } from "@/api/channels";
 import { type CoverageQuery, useCoverage, useIssueJobs } from "@/api/jobs";
+import { fmtUsd, useLeversEstimate, useScoreLevers } from "@/api/levers";
 import { FormatBadge } from "@/components/badges";
 import { Button } from "@/components/ui/button";
 import { Alert, Card, EmptyState, PageHeader, Select, Spinner } from "@/components/ui/primitives";
@@ -24,10 +25,18 @@ export function CoveragePage() {
   const { data, isLoading, error } = useCoverage(query);
   const channels = useChannels();
   const issue = useIssueJobs();
+  const leverEstimate = useLeversEstimate();
+  const scoreLevers = useScoreLevers();
   const [selected, setSelected] = useState<Set<Key>>(new Set());
 
   const issuable = useMemo(
-    () => new Set((data?.analyzers ?? []).filter((a) => a.runner_type !== "builtin").map((a) => a.name)),
+    // Pairwise lever jobs are started from a study or the Compare page, not per cell.
+    () =>
+      new Set(
+        (data?.analyzers ?? [])
+          .filter((a) => a.runner_type !== "builtin" && a.name !== "levers_gemini_pairwise")
+          .map((a) => a.name),
+      ),
     [data],
   );
   const canSelect = (analyzer: string, status: string) =>
@@ -109,7 +118,13 @@ export function CoveragePage() {
         </Button>
         <Button
           disabled={!requests.length || issue.isPending}
-          onClick={() => issue.mutate({ requests }, { onSuccess: () => setSelected(new Set()) })}
+          onClick={() => {
+            const gemini = requests.find((r) => r.analyzer === "levers_gemini");
+            const rest = requests.filter((r) => r.analyzer !== "levers_gemini");
+            // Gemini batches cost money: show the estimate and wait for a confirm.
+            if (gemini) leverEstimate.mutate({ video_ids: gemini.video_ids });
+            if (rest.length) issue.mutate({ requests: rest }, { onSuccess: () => !gemini && setSelected(new Set()) });
+          }}
         >
           <Play /> Issue {requests.length} job{requests.length === 1 ? "" : "s"}
         </Button>
@@ -129,6 +144,35 @@ export function CoveragePage() {
         </Alert>
       ) : null}
       {issue.error ? <Alert tone="destructive" className="mb-3">{issue.error.message}</Alert> : null}
+      {leverEstimate.data && !scoreLevers.data ? (
+        <Alert className="mb-3">
+          Gemini levers: {leverEstimate.data.estimate.videos} videos ({leverEstimate.data.estimate.already_scored} already
+          scored), {leverEstimate.data.estimate.calls} calls on {leverEstimate.data.estimate.model}, about{" "}
+          {fmtUsd(leverEstimate.data.estimate.cost_usd)}.{" "}
+          <Button
+            size="sm"
+            disabled={scoreLevers.isPending || !leverEstimate.data.estimate.videos}
+            onClick={() => {
+              const ids = requests.find((r) => r.analyzer === "levers_gemini")?.video_ids ?? [];
+              scoreLevers.mutate(ids, { onSuccess: () => setSelected(new Set()) });
+            }}
+          >
+            Confirm and queue
+          </Button>
+        </Alert>
+      ) : null}
+      {scoreLevers.data?.job ? (
+        <Alert className="mb-3">
+          Queued{" "}
+          <Link to="/jobs/$jobId" params={{ jobId: String(scoreLevers.data.job.id) }} className="text-primary underline">
+            #{scoreLevers.data.job.id} levers_gemini
+          </Link>
+          .
+        </Alert>
+      ) : null}
+      {(leverEstimate.error ?? scoreLevers.error) ? (
+        <Alert tone="destructive" className="mb-3">{(leverEstimate.error ?? scoreLevers.error)?.message}</Alert>
+      ) : null}
 
       {isLoading ? (
         <Spinner />
@@ -161,6 +205,16 @@ export function CoveragePage() {
                     </div>
                   </th>
                 ))}
+                {data.lever_columns.map((c) => (
+                  <th key={c.key} className="p-1 align-bottom">
+                    <span
+                      className="block w-full px-1 py-1 text-xs font-medium [writing-mode:vertical-rl] rotate-180"
+                      title={`${c.lever} lever, method ${c.method} (median score 1-5)`}
+                    >
+                      {c.lever} · {c.method.replace("gemini_agentic", "gemini")}
+                    </span>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -189,6 +243,23 @@ export function CoveragePage() {
                           title={`${a.title}: ${c.status}${c.job_id ? ` (job #${c.job_id})` : ""}`}
                           onClick={() => clickable && toggle(k)}
                         />
+                      </td>
+                    );
+                  })}
+                  {data.lever_columns.map((c) => {
+                    const l = v.levers[c.key];
+                    return (
+                      <td key={c.key} className="p-1 text-center text-xs tabular">
+                        {l?.score != null ? (
+                          <span
+                            className={cn("rounded px-1", l.flags.length && "bg-warning/20")}
+                            title={`${c.lever}: ${l.score} (spread ${l.spread ?? "?"})${l.flags.length ? `; ${l.flags.join(", ")}` : ""}`}
+                          >
+                            {l.score.toFixed(1)}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">·</span>
+                        )}
                       </td>
                     );
                   })}

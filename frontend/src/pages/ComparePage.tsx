@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useChannels } from "@/api/channels";
 import type { Schemas } from "@/api/client";
 import { useCompare } from "@/api/data";
+import { ComparePairwiseCard } from "@/components/LeversActions";
 import { PlotFigure } from "@/components/PlotFigure";
 import {
   Alert,
@@ -267,6 +268,13 @@ export function ComparePage() {
               </CardContent>
             </Card>
           </div>
+          <ComparePairwiseCard
+            videos={profiles.flatMap((p) =>
+              [...p.videos]
+                .sort((x, y) => (y.views ?? 0) - (x.views ?? 0))
+                .map((v) => ({ id: v.id, title: v.title, channel: p.title })),
+            )}
+          />
         </>
       ) : null}
     </div>

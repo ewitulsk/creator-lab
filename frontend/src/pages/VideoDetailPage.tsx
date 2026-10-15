@@ -9,7 +9,9 @@ import { useIssueJobs } from "@/api/jobs";
 import { FormatBadge, OutlierBadge, StatusBadge } from "@/components/badges";
 import { PlotFigure } from "@/components/PlotFigure";
 import { useBrainMeta } from "@/api/brain";
+import { leverMarkers, useVideoLevers } from "@/api/levers";
 import { BrainPlayer } from "@/components/brain/BrainPlayer";
+import { LeversPanel } from "@/components/LeversPanel";
 import { MostReplayed } from "@/components/MostReplayed";
 import { RealEngagement } from "@/components/RealEngagement";
 import { Button } from "@/components/ui/button";
@@ -108,6 +110,11 @@ export function VideoDetailPage() {
   const [tab, setTab] = useState<string>("");
   const player = useRef<HTMLVideoElement>(null);
   const brainMeta = useBrainMeta(id);
+  const levers = useVideoLevers(id);
+  const markers = useMemo(() => leverMarkers(levers.data), [levers.data]);
+  const seek = (s: number) => {
+    if (player.current) player.current.currentTime = s;
+  };
 
   if (q.isLoading) return <Spinner />;
   if (q.error || !q.data) return <Alert tone="destructive">{q.error?.message ?? "Not found"}</Alert>;
@@ -161,13 +168,7 @@ export function VideoDetailPage() {
           ) : (
             <img src={v.thumbnail} alt="" className="w-full rounded-xl" referrerPolicy="no-referrer" />
           )}
-          <MostReplayed
-            videoId={v.id}
-            durationS={v.duration_s}
-            onSeek={(s) => {
-              if (player.current) player.current.currentTime = s;
-            }}
-          />
+          <MostReplayed videoId={v.id} durationS={v.duration_s} onSeek={seek} markers={markers} />
           <StatsOverTime snapshots={snapshots} publishedAt={v.published_at} />
         </div>
         <div className="space-y-4">
@@ -181,6 +182,7 @@ export function VideoDetailPage() {
             <Stat label="Likes" value={fmtCount(v.likes)} hint={v.views && v.likes ? `${((v.likes / v.views) * 100).toFixed(2)}% of views` : undefined} />
             <Stat label="Comments" value={fmtCount(v.comments)} />
           </div>
+          <LeversPanel videoId={v.id} onSeek={seek} />
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Analyzers</CardTitle>
@@ -240,7 +242,7 @@ export function VideoDetailPage() {
       </div>
       {v.channel.owned ? (
         <div className="mt-4">
-          <RealEngagement videoId={v.id} />
+          <RealEngagement videoId={v.id} markers={markers} />
         </div>
       ) : null}
     </div>

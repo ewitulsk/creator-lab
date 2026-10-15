@@ -4,6 +4,7 @@ import Markdown from "react-markdown";
 import type { Schemas } from "@/api/client";
 import { useAnalyze, useFillGaps, useLockStudy, useNewVersion, useSelectMembers, useStudy } from "@/api/studies";
 import { StatusBadge } from "@/components/badges";
+import { StudyPairwiseButton } from "@/components/LeversActions";
 import { Button } from "@/components/ui/button";
 import {
   Alert,
@@ -197,6 +198,7 @@ export function StudyDetailPage() {
           <Button disabled={analyze.isPending || s.analyzing || !s.members} onClick={() => analyze.mutate()}>
             {s.analyzing ? <Spinner className="size-3" /> : <BarChart3 />} Analyze
           </Button>
+          <StudyPairwiseButton studyId={s.id} />
         </div>
       </div>
       {actionError ? <Alert tone="destructive">{actionError.message}</Alert> : null}

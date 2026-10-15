@@ -3,6 +3,7 @@ import { RotateCcw, Square } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { isActive, useCancelJob, useJob, useJobLog, useRetryJob } from "@/api/jobs";
 import { StatusBadge } from "@/components/badges";
+import { LeversJobCost } from "@/components/LeversActions";
 import { Button } from "@/components/ui/button";
 import {
   Alert,
@@ -105,6 +106,7 @@ export function JobDetailPage() {
         <Stat label="Failed" value={j.items_by_status.failed ?? 0} />
         <Stat label="Elapsed" value={fmtElapsed(j.elapsed_seconds)} />
       </div>
+      {j.analyzer.startsWith("levers_") ? <LeversJobCost jobId={j.id} /> : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

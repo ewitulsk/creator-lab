@@ -113,3 +113,28 @@ TRIBE_ENGAGEMENT = register(
         applies_to=["long", "short"],
     )
 )
+
+LEVERS_GEMINI = register(
+    Spec(
+        name="levers_gemini",
+        version="1",
+        title="Levers (Gemini)",
+        runner_type="api",
+        description="Six viral levers (attention, emotion, comprehension, valuable, memorable, shareable) scored "
+        "1-5 by Gemini watching a blinded low-res copy, against rubrics/levers_v1.yaml. Runs 3 times; stores every "
+        "run, the median and spread, emotional moments, evidence and a contamination probe.",
+        inputs=["media"],
+        output_format="lever_scores tables + raw JSON",
+    )
+)
+LEVERS_GEMINI_PAIRWISE = register(
+    Spec(
+        name="levers_gemini_pairwise",
+        version="1",
+        title="Levers pairwise (Gemini)",
+        runner_type="api",
+        description="Which of two videos is stronger on each lever, judged in both orders to cancel position bias.",
+        inputs=["media"],
+        output_format="lever_pairwise table + raw JSON",
+    )
+)

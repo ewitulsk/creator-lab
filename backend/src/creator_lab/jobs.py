@@ -97,6 +97,13 @@ def issue_job(
     analyzer = current(analyzer_name)
     if analyzer.runner_type == "builtin":
         raise JobError(f"{analyzer_name} is computed in-app; it has no jobs")
+    if analyzer.runner_type == "api":
+        from .levers import config as lcfg
+
+        if not lcfg.key_is_set():
+            raise JobError("GEMINI_API_KEY is not set in backend/.env, so the Gemini lever analyzers are unavailable")
+        # Freeze the settings for this job so a change mid-batch can't mix configurations.
+        params = {**(params or {}), "config": {**lcfg.get_config(), **((params or {}).get("config") or {})}}
     videos = list(db.session.scalars(db.select(Video).where(Video.id.in_(video_ids), Video.gone.is_(False))))
     if analyzer.applies_to:
         videos = [v for v in videos if v.format in analyzer.applies_to]
@@ -112,6 +119,13 @@ def issue_job(
                 )
             )
         )
+        if analyzer.name == "levers_gemini":
+            # Done means scored at this analyzer version + rubric hash + model + input mode,
+            # not just "has a result": a new rubric or model scores again.
+            from .levers import rubric as lrubric
+            from .levers import service as lsvc
+
+            done = lsvc.already_scored([v.id for v in videos], params["config"], lrubric.load())
         if analyzer.name == "media":  # a file already on disk counts as done
             for v in videos:
                 if v.id not in done and has_asset(v.id, "video"):

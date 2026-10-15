@@ -54,7 +54,7 @@ def shorts():
 
 # ------------------------------------------------------------------ exports
 
-EXPORTS = ("videos", "video_snapshots", "channel_snapshots", "analyzer")
+EXPORTS = ("videos", "video_snapshots", "channel_snapshots", "analyzer", "levers")
 
 
 def _rows(kind: str) -> list[dict]:
@@ -137,6 +137,13 @@ def _rows(kind: str) -> list[dict]:
                 row[k] = json.dumps(val) if isinstance(val, (dict, list)) else val
             out.append(row)
         return out
+    if kind == "levers":
+        from ..levers.service import export_rows
+
+        ids = None
+        if channel_ids:
+            ids = list(db.session.scalars(db.select(Video.id).where(Video.channel_id.in_(channel_ids))))
+        return export_rows(ids)
     raise ApiError(f"export must be one of {', '.join(EXPORTS)}", 404)
 
 

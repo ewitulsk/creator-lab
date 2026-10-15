@@ -2,14 +2,26 @@ import * as Plot from "@observablehq/plot";
 import { Flame } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useIssueJobs } from "@/api/jobs";
+import type { LeverMarker } from "@/api/levers";
 import { useHeatmap } from "@/api/owner";
 import { PlotFigure } from "@/components/PlotFigure";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, Select } from "@/components/ui/primitives";
 import { fmtDateTime, fmtDuration } from "@/lib/format";
+import { leverMarks } from "@/lib/leverMarks";
 
 /** YouTube's public "Most replayed" heatmap (yt-dlp), on the video's time axis. */
-export function MostReplayed({ videoId, durationS, onSeek }: { videoId: number; durationS: number | null; onSeek?: (s: number) => void }) {
+export function MostReplayed({
+  videoId,
+  durationS,
+  onSeek,
+  markers,
+}: {
+  videoId: number;
+  durationS: number | null;
+  onSeek?: (s: number) => void;
+  markers?: LeverMarker[];
+}) {
   const [captureId, setCaptureId] = useState<number | undefined>(undefined);
   const { data } = useHeatmap(videoId, captureId);
   const issue = useIssueJobs();
@@ -27,10 +39,11 @@ export function MostReplayed({ videoId, durationS, onSeek }: { videoId: number; 
         Plot.lineY(pts, { x: "mid", y: "value", stroke: "#f97316", curve: "monotone-x" }),
         Plot.ruleX(data.chapters, { x: "start_s", stroke: "currentColor", strokeOpacity: 0.3 }),
         Plot.text(data.chapters, { x: "start_s", y: 1, text: "title", dx: 3, textAnchor: "start", fontSize: 9, fillOpacity: 0.7 }),
+        ...leverMarks(markers, 1),
         Plot.tip(pts, Plot.pointerX({ x: "mid", y: "value", title: (d) => `${fmtDuration(d.start_s)}–${fmtDuration(d.end_s)}: ${d.value.toFixed(2)}` })),
       ],
     } as Plot.PlotOptions;
-  }, [data, durationS]);
+  }, [data, durationS, markers]);
 
   return (
     <Card>
@@ -61,7 +74,13 @@ export function MostReplayed({ videoId, durationS, onSeek }: { videoId: number; 
       </CardHeader>
       <CardContent>
         {options ? (
-          <PlotFigure options={options} onPick={(d) => onSeek?.((d as { start_s: number }).start_s)} />
+          <PlotFigure
+            options={options}
+            onPick={(d) => {
+              const x = d as { start_s?: number; t?: number };
+              onSeek?.(x.start_s ?? x.t ?? 0);
+            }}
+          />
         ) : (
           <p className="text-sm text-muted-foreground">
             {data?.captures.length

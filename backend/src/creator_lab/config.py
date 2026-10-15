@@ -43,6 +43,7 @@ class Config:
     google_client_id: str | None = None
     google_client_secret: str | None = None
     google_redirect_uri: str | None = None
+    gemini_api_key: str | None = field(default=None, repr=False)  # never logged or returned by the API
     testing: bool = False
     start_scheduler: bool = True
     extra: dict = field(default_factory=dict)
@@ -77,4 +78,5 @@ class Config:
             google_client_id=os.environ.get("GOOGLE_OAUTH_CLIENT_ID"),
             google_client_secret=os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET"),
             google_redirect_uri=os.environ.get("GOOGLE_OAUTH_REDIRECT_URI"),
+            gemini_api_key=os.environ.get("GEMINI_API_KEY"),
         )

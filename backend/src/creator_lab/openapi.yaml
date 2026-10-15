@@ -495,7 +495,7 @@ components:
         job_id: { type: [integer, "null"] }
     Coverage:
       type: object
-      required: [analyzers, videos, total]
+      required: [analyzers, videos, lever_columns, total]
       properties:
         analyzers:
           type: array
@@ -511,7 +511,7 @@ components:
           type: array
           items:
             type: object
-            required: [video_id, title, channel_id, format, published_at, selection, cells]
+            required: [video_id, title, channel_id, format, published_at, selection, cells, levers]
             properties:
               video_id: { type: integer }
               title: { type: string }
@@ -520,6 +520,24 @@ components:
               published_at: { type: [string, "null"] }
               selection: { type: string }
               cells: { type: object, additionalProperties: { $ref: "#/components/schemas/CoverageCell" } }
+              levers:
+                type: object
+                additionalProperties:
+                  type: object
+                  required: [score, spread, flags]
+                  properties:
+                    score: { type: [number, "null"] }
+                    spread: { type: [number, "null"] }
+                    flags: { type: array, items: { type: string } }
+        lever_columns:
+          type: array
+          items:
+            type: object
+            required: [key, lever, method]
+            properties:
+              key: { type: string }
+              lever: { type: string }
+              method: { type: string }
         total: { type: integer }
     JobResponse:
       type: object
@@ -781,6 +799,156 @@ components:
         name: { type: string }
         bytes: { type: integer }
         created_at: { type: string }
+    LeversConfig:
+      type: object
+      required: [key_set, config, models, input_modes, rubric]
+      properties:
+        key_set: { type: boolean, description: Whether GEMINI_API_KEY is set. The key itself is never returned. }
+        config:
+          type: object
+          required: [model, input_mode, upload_height, upload_fps, runs, temperature, agentic, min_seconds_between_calls]
+          properties:
+            model: { type: string }
+            input_mode: { type: string, enum: [upload, youtube_url] }
+            upload_height: { type: integer }
+            upload_fps: { type: integer }
+            runs: { type: integer }
+            temperature: { type: number }
+            agentic: { type: boolean }
+            min_seconds_between_calls: { type: integer }
+        models:
+          type: array
+          items:
+            type: object
+            required: [id, title, price_per_mtok]
+            properties:
+              id: { type: string }
+              title: { type: string }
+              price_per_mtok: { type: array, items: { type: number }, description: "[input, output] USD per 1M tokens today" }
+        input_modes:
+          type: array
+          items:
+            type: object
+            required: [id, title, blinded]
+            properties:
+              id: { type: string }
+              title: { type: string }
+              blinded: { type: boolean }
+        rubric:
+          type: object
+          required: [version, hash, path]
+          properties:
+            version: { type: integer }
+            hash: { type: string }
+            path: { type: string }
+    LeverEstimate:
+      type: object
+      additionalProperties: true
+      properties:
+        model: { type: string }
+        input_mode: { type: string }
+        videos: { type: integer }
+        pairs: { type: integer }
+        already_scored: { type: integer }
+        video_seconds: { type: number }
+        calls: { type: integer }
+        runs_per_video: { type: integer }
+        input_tokens: { type: integer }
+        output_tokens: { type: integer }
+        cost_usd: { type: number }
+        assumptions: { type: string }
+    LeverEntry:
+      type: object
+      required: [score, spread, confidence, reason, evidence, flags, subscores]
+      properties:
+        score: { type: [number, "null"] }
+        spread: { type: [number, "null"] }
+        confidence: { type: [string, "null"] }
+        reason: { type: [string, "null"] }
+        evidence:
+          type: array
+          items:
+            type: object
+            required: [t_start, t_end, note]
+            properties:
+              t_start: { type: number }
+              t_end: { type: number }
+              note: { type: string }
+        flags: { type: array, items: { type: string } }
+        subscores: { type: object, additionalProperties: { type: [number, "null"] } }
+    VideoLevers:
+      type: object
+      required: [scorings, moments, probe]
+      properties:
+        scorings:
+          type: array
+          items:
+            type: object
+            required: [method, analyzer_version, rubric_version, rubric_hash, model, input_mode, job_id, created_at, aggregate, runs]
+            properties:
+              method: { type: string }
+              analyzer_version: { type: string }
+              rubric_version: { type: [integer, "null"] }
+              rubric_hash: { type: [string, "null"] }
+              model: { type: [string, "null"] }
+              input_mode: { type: [string, "null"] }
+              job_id: { type: [integer, "null"] }
+              created_at: { type: string }
+              aggregate: { type: object, additionalProperties: { $ref: "#/components/schemas/LeverEntry" } }
+              runs:
+                type: object
+                additionalProperties: { type: object, additionalProperties: { $ref: "#/components/schemas/LeverEntry" } }
+        moments:
+          type: array
+          items:
+            type: object
+            required: [kind, lever, t_start, t_end, intensity, label, run_idx]
+            properties:
+              kind: { type: string, enum: [displayed, elicited, evidence] }
+              lever: { type: [string, "null"] }
+              t_start: { type: number }
+              t_end: { type: [number, "null"] }
+              intensity: { type: [integer, "null"] }
+              label: { type: [string, "null"] }
+              run_idx: { type: [integer, "null"] }
+        probe:
+          oneOf:
+            - type: "null"
+            - $ref: "#/components/schemas/LeverProbe"
+    LeverProbe:
+      type: object
+      required: [identified, creator_guess, title_guess, confidence, contaminated, model, input_mode]
+      properties:
+        identified: { type: boolean }
+        creator_guess: { type: [string, "null"] }
+        title_guess: { type: [string, "null"] }
+        confidence: { type: [string, "null"] }
+        contaminated: { type: boolean }
+        model: { type: [string, "null"] }
+        input_mode: { type: [string, "null"] }
+    LeverPairwiseRow:
+      type: object
+      required: [video_a, video_b, order, lever, winner_video_id, confidence, reason, pair_key, study_id, model, input_mode, created_at]
+      properties:
+        video_a: { type: integer }
+        video_b: { type: integer }
+        order: { type: string }
+        lever: { type: string }
+        winner_video_id: { type: [integer, "null"] }
+        confidence: { type: [string, "null"] }
+        reason: { type: [string, "null"] }
+        pair_key: { type: [string, "null"] }
+        study_id: { type: [integer, "null"] }
+        model: { type: [string, "null"] }
+        input_mode: { type: [string, "null"] }
+        created_at: { type: string }
+    LeverJobStart:
+      type: object
+      required: [job, estimate]
+      properties:
+        job: { oneOf: [{ $ref: "#/components/schemas/JobSummary" }, { type: "null" }] }
+        estimate: { $ref: "#/components/schemas/LeverEstimate" }
+        dropped_pairs: { type: integer }
   parameters:
     StudyId: { name: study_id, in: path, required: true, schema: { type: integer } }
     JobId: { name: job_id, in: path, required: true, schema: { type: integer } }
@@ -2024,4 +2192,177 @@ paths:
       operationId: downloadBackup
       responses:
         "200": { description: SQLite file, content: { application/octet-stream: { schema: { type: string, format: binary } } } }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/levers/config:
+    get:
+      operationId: leversConfig
+      responses:
+        "200": { description: Lever settings, content: { application/json: { schema: { $ref: "#/components/schemas/LeversConfig" } } } }
+    put:
+      operationId: updateLeversConfig
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, additionalProperties: true } } }
+      responses:
+        "200": { description: Saved, content: { application/json: { schema: { $ref: "#/components/schemas/LeversConfig" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/levers/test:
+    post:
+      operationId: testLeversConnection
+      description: One metadata call checking the key and the model id. No video is sent.
+      requestBody:
+        content: { application/json: { schema: { type: object, properties: { model: { type: string } } } } }
+      responses:
+        "200":
+          description: Result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, model]
+                properties:
+                  ok: { type: boolean }
+                  model: { type: string }
+                  info: { type: object, additionalProperties: true }
+                  error: { type: string }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/levers/estimate:
+    post:
+      operationId: estimateLevers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                video_ids: { type: array, items: { type: integer } }
+                pairs: { type: array, items: { type: array, items: { type: integer } } }
+                config: { type: object, additionalProperties: true }
+      responses:
+        "200":
+          description: Calls, tokens and estimated cost
+          content:
+            application/json:
+              schema: { type: object, required: [estimate], properties: { estimate: { $ref: "#/components/schemas/LeverEstimate" } } }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/levers/score:
+    post:
+      operationId: scoreLevers
+      description: Queue a Gemini scoring batch. Refused when GEMINI_API_KEY is missing.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [video_ids], properties: { video_ids: { type: array, items: { type: integer } } } } } }
+      responses:
+        "200": { description: Job, content: { application/json: { schema: { $ref: "#/components/schemas/LeverJobStart" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/levers/ab:
+    post:
+      operationId: startLeversAB
+      description: Score up to 5 videos both by upload and by YouTube URL (real API calls).
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [video_ids], properties: { video_ids: { type: array, items: { type: integer } } } } } }
+      responses:
+        "200":
+          description: Job
+          content:
+            application/json:
+              schema: { type: object, required: [job], properties: { job: { oneOf: [{ $ref: "#/components/schemas/JobSummary" }, { type: "null" }] } } }
+        "400": { $ref: "#/components/responses/Error" }
+    get:
+      operationId: leversABReport
+      parameters:
+        - { name: video_ids, in: query, required: true, schema: { type: string } }
+        - { name: model, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: Upload vs URL aggregate per lever
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rows]
+                properties:
+                  rows:
+                    type: array
+                    items:
+                      type: object
+                      required: [video_id, lever, upload, youtube_url, difference]
+                      properties:
+                        video_id: { type: integer }
+                        lever: { type: string }
+                        upload: { type: [number, "null"] }
+                        youtube_url: { type: [number, "null"] }
+                        difference: { type: [number, "null"] }
+  /api/levers/pairwise:
+    post:
+      operationId: startLeversPairwise
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [pairs], properties: { pairs: { type: array, items: { type: array, items: { type: integer } } } } } } }
+      responses:
+        "200": { description: Job, content: { application/json: { schema: { $ref: "#/components/schemas/LeverJobStart" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+    get:
+      operationId: leversPairwise
+      parameters:
+        - { name: study_id, in: query, schema: { type: integer } }
+        - { name: video_id, in: query, schema: { type: integer } }
+      responses:
+        "200":
+          description: Pairwise judgments
+          content:
+            application/json:
+              schema: { type: object, required: [rows], properties: { rows: { type: array, items: { $ref: "#/components/schemas/LeverPairwiseRow" } } } }
+  /api/studies/{study_id}/levers-pairwise:
+    parameters: [{ $ref: "#/components/parameters/StudyId" }]
+    post:
+      operationId: studyLeversPairwise
+      requestBody:
+        content: { application/json: { schema: { type: object, properties: { estimate_only: { type: boolean } } } } }
+      responses:
+        "200":
+          description: Job (or just the estimate)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [estimate]
+                properties:
+                  job: { oneOf: [{ $ref: "#/components/schemas/JobSummary" }, { type: "null" }] }
+                  estimate: { $ref: "#/components/schemas/LeverEstimate" }
+                  pairs: { type: integer }
+                  dropped_pairs: { type: integer }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/videos/{video_id}/levers:
+    parameters: [{ $ref: "#/components/parameters/VideoId" }]
+    get:
+      operationId: videoLevers
+      responses:
+        "200": { description: Lever scores, content: { application/json: { schema: { $ref: "#/components/schemas/VideoLevers" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/levers/jobs/{job_id}/cost:
+    parameters: [{ $ref: "#/components/parameters/JobId" }]
+    get:
+      operationId: leversJobCost
+      responses:
+        "200":
+          description: Estimated vs actual cost
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job_id, estimate, actual]
+                properties:
+                  job_id: { type: integer }
+                  estimate: { oneOf: [{ $ref: "#/components/schemas/LeverEstimate" }, { type: "null" }] }
+                  actual:
+                    type: object
+                    required: [calls, input_tokens, output_tokens, cost_usd]
+                    properties:
+                      calls: { type: integer }
+                      input_tokens: { type: integer }
+                      output_tokens: { type: integer }
+                      cost_usd: { type: number }
         "404": { $ref: "#/components/responses/Error" }

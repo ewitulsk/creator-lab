@@ -84,6 +84,10 @@ def cmd_serve(args) -> None:
         from .scheduler import start_scheduler
 
         start_scheduler(app)
+    from .levers import worker as levers_worker
+
+    with app.app_context():
+        levers_worker.start(app)
     log.info("Serving on http://%s:%s (data in %s)", args.host, args.port, cfg.data_root)
     # Threaded werkzeug is enough for one user on a desktop and handles SSE well.
     app.run(host=args.host, port=args.port, threaded=True, debug=False, use_reloader=False)

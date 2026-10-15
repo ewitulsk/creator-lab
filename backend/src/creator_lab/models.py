@@ -550,3 +550,137 @@ class VideoChapter(db.Model):
     start_s: Mapped[float]
     end_s: Mapped[float | None]
     title: Mapped[str] = mapped_column(String(500), default="")
+
+
+# ------------------------------------------------------------------ viral levers
+# One data point is a lever x method pair. `method` is open-ended text (gemini_agentic today;
+# cut_rate, voice_arousal, tribe_* later), so new methods need no migration. Kept separate
+# from retention and heatmap tables.
+
+
+class LeverScore(db.Model):
+    """A lever score: one row per run, plus one aggregate row (run_idx NULL) per scoring."""
+
+    __tablename__ = "lever_scores"
+    __table_args__ = (
+        Index("ix_lever_scores_video", "video_id", "method", "lever"),
+        Index("ix_lever_scores_key", "method", "analyzer_version", "rubric_hash", "model"),
+    )
+    id: Mapped[int] = mapped_column(primary_key=True)
+    video_id: Mapped[int] = mapped_column(ForeignKey("videos.id", ondelete="CASCADE"))
+    lever: Mapped[str] = mapped_column(String(40))
+    method: Mapped[str] = mapped_column(String(60))
+    analyzer_version: Mapped[str] = mapped_column(String(20))
+    rubric_version: Mapped[int | None]
+    rubric_hash: Mapped[str | None] = mapped_column(String(64))
+    model: Mapped[str | None] = mapped_column(String(80))
+    input_mode: Mapped[str | None] = mapped_column(String(20))  # upload | youtube_url
+    run_idx: Mapped[int | None]  # None = aggregate (median of the runs)
+    score: Mapped[float | None]
+    spread: Mapped[float | None]  # aggregate only: max - min across runs
+    n_runs: Mapped[int | None]
+    confidence: Mapped[str | None] = mapped_column(String(10))
+    reason: Mapped[str | None] = mapped_column(Text)
+    evidence: Mapped[list] = mapped_column(JSON, default=list)
+    flags: Mapped[list] = mapped_column(JSON, default=list)
+    job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id", ondelete="SET NULL"))
+    created_at: Mapped[dt.datetime] = mapped_column(default=utcnow)
+
+
+class LeverSubscore(db.Model):
+    __tablename__ = "lever_subscores"
+    __table_args__ = (Index("ix_lever_subscores_score", "score_id"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    score_id: Mapped[int] = mapped_column(ForeignKey("lever_scores.id", ondelete="CASCADE"))
+    video_id: Mapped[int] = mapped_column(ForeignKey("videos.id", ondelete="CASCADE"))
+    lever: Mapped[str] = mapped_column(String(40))
+    item: Mapped[str] = mapped_column(String(60))
+    score: Mapped[float | None]
+
+
+class LeverMoment(db.Model):
+    """Timestamped moments: emotional peaks and evidence spans."""
+
+    __tablename__ = "lever_moments"
+    __table_args__ = (Index("ix_lever_moments_video", "video_id", "method"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    video_id: Mapped[int] = mapped_column(ForeignKey("videos.id", ondelete="CASCADE"))
+    method: Mapped[str] = mapped_column(String(60))
+    analyzer_version: Mapped[str] = mapped_column(String(20))
+    rubric_hash: Mapped[str | None] = mapped_column(String(64))
+    model: Mapped[str | None] = mapped_column(String(80))
+    input_mode: Mapped[str | None] = mapped_column(String(20))
+    run_idx: Mapped[int | None]
+    kind: Mapped[str] = mapped_column(String(20))  # displayed | elicited | evidence
+    lever: Mapped[str | None] = mapped_column(String(40))
+    t_start: Mapped[float]
+    t_end: Mapped[float | None]
+    intensity: Mapped[int | None]
+    label: Mapped[str | None] = mapped_column(Text)  # emotion, or the evidence note
+    job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id", ondelete="SET NULL"))
+    created_at: Mapped[dt.datetime] = mapped_column(default=utcnow)
+
+
+class LeverPairwise(db.Model):
+    """Which of two videos is stronger on a lever. Each pair is judged in both orders."""
+
+    __tablename__ = "lever_pairwise"
+    __table_args__ = (Index("ix_lever_pairwise_pair", "video_a", "video_b"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    study_id: Mapped[int | None] = mapped_column(ForeignKey("studies.id", ondelete="SET NULL"))
+    pair_key: Mapped[str | None] = mapped_column(String(80))
+    video_a: Mapped[int] = mapped_column(ForeignKey("videos.id", ondelete="CASCADE"))  # shown first
+    video_b: Mapped[int] = mapped_column(ForeignKey("videos.id", ondelete="CASCADE"))
+    order: Mapped[str] = mapped_column(String(4))  # ab: lower id shown first; ba: reversed
+    lever: Mapped[str] = mapped_column(String(40))
+    winner_video_id: Mapped[int | None]  # None = tie
+    confidence: Mapped[str | None] = mapped_column(String(10))
+    reason: Mapped[str | None] = mapped_column(Text)
+    method: Mapped[str] = mapped_column(String(60))
+    analyzer_version: Mapped[str] = mapped_column(String(20))
+    rubric_hash: Mapped[str | None] = mapped_column(String(64))
+    model: Mapped[str | None] = mapped_column(String(80))
+    input_mode: Mapped[str | None] = mapped_column(String(20))
+    job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id", ondelete="SET NULL"))
+    created_at: Mapped[dt.datetime] = mapped_column(default=utcnow)
+
+
+class LeverProbe(db.Model):
+    """The contamination probe: can the model tell which video or creator this is?"""
+
+    __tablename__ = "lever_probes"
+    __table_args__ = (Index("ix_lever_probes_video", "video_id"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    video_id: Mapped[int] = mapped_column(ForeignKey("videos.id", ondelete="CASCADE"))
+    model: Mapped[str | None] = mapped_column(String(80))
+    input_mode: Mapped[str | None] = mapped_column(String(20))
+    identified: Mapped[bool] = mapped_column(default=False)
+    creator_guess: Mapped[str | None] = mapped_column(String(200))
+    title_guess: Mapped[str | None] = mapped_column(String(300))
+    confidence: Mapped[str | None] = mapped_column(String(10))
+    contaminated: Mapped[bool] = mapped_column(default=False)
+    job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id", ondelete="SET NULL"))
+    created_at: Mapped[dt.datetime] = mapped_column(default=utcnow)
+
+
+class LeverCall(db.Model):
+    """Every Gemini call: tokens, estimated cost and where the raw response is saved."""
+
+    __tablename__ = "lever_calls"
+    __table_args__ = (Index("ix_lever_calls_job", "job_id"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id", ondelete="SET NULL"))
+    video_id: Mapped[int | None] = mapped_column(ForeignKey("videos.id", ondelete="SET NULL"))
+    other_video_id: Mapped[int | None] = mapped_column(ForeignKey("videos.id", ondelete="SET NULL"))
+    kind: Mapped[str] = mapped_column(String(20))  # score | probe | pairwise | test
+    run_idx: Mapped[int | None]
+    model: Mapped[str] = mapped_column(String(80))
+    input_mode: Mapped[str | None] = mapped_column(String(20))
+    ok: Mapped[bool] = mapped_column(default=True)
+    error: Mapped[str | None] = mapped_column(Text)
+    input_tokens: Mapped[int] = mapped_column(default=0)
+    output_tokens: Mapped[int] = mapped_column(default=0)
+    thought_tokens: Mapped[int] = mapped_column(default=0)
+    cost_usd: Mapped[float] = mapped_column(default=0.0)
+    raw_path: Mapped[str | None] = mapped_column(String(500))
+    created_at: Mapped[dt.datetime] = mapped_column(default=utcnow)

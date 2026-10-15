@@ -1139,6 +1139,159 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/levers/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["leversConfig"];
+        put: operations["updateLeversConfig"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/levers/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description One metadata call checking the key and the model id. No video is sent. */
+        post: operations["testLeversConnection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/levers/estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["estimateLevers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/levers/score": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Queue a Gemini scoring batch. Refused when GEMINI_API_KEY is missing. */
+        post: operations["scoreLevers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/levers/ab": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["leversABReport"];
+        put?: never;
+        /** @description Score up to 5 videos both by upload and by YouTube URL (real API calls). */
+        post: operations["startLeversAB"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/levers/pairwise": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["leversPairwise"];
+        put?: never;
+        post: operations["startLeversPairwise"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/studies/{study_id}/levers-pairwise": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                study_id: components["parameters"]["StudyId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["studyLeversPairwise"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/videos/{video_id}/levers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                video_id: components["parameters"]["VideoId"];
+            };
+            cookie?: never;
+        };
+        get: operations["videoLevers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/levers/jobs/{job_id}/cost": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        get: operations["leversJobCost"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1555,6 +1708,18 @@ export interface components {
                 cells: {
                     [key: string]: components["schemas"]["CoverageCell"];
                 };
+                levers: {
+                    [key: string]: {
+                        score: number | null;
+                        spread: number | null;
+                        flags: string[];
+                    };
+                };
+            }[];
+            lever_columns: {
+                key: string;
+                lever: string;
+                method: string;
             }[];
             total: number;
         };
@@ -1774,6 +1939,127 @@ export interface components {
             name: string;
             bytes: number;
             created_at: string;
+        };
+        LeversConfig: {
+            /** @description Whether GEMINI_API_KEY is set. The key itself is never returned. */
+            key_set: boolean;
+            config: {
+                model: string;
+                /** @enum {string} */
+                input_mode: "upload" | "youtube_url";
+                upload_height: number;
+                upload_fps: number;
+                runs: number;
+                temperature: number;
+                agentic: boolean;
+                min_seconds_between_calls: number;
+            };
+            models: {
+                id: string;
+                title: string;
+                /** @description [input, output] USD per 1M tokens today */
+                price_per_mtok: number[];
+            }[];
+            input_modes: {
+                id: string;
+                title: string;
+                blinded: boolean;
+            }[];
+            rubric: {
+                version: number;
+                hash: string;
+                path: string;
+            };
+        };
+        LeverEstimate: {
+            model?: string;
+            input_mode?: string;
+            videos?: number;
+            pairs?: number;
+            already_scored?: number;
+            video_seconds?: number;
+            calls?: number;
+            runs_per_video?: number;
+            input_tokens?: number;
+            output_tokens?: number;
+            cost_usd?: number;
+            assumptions?: string;
+        } & {
+            [key: string]: unknown;
+        };
+        LeverEntry: {
+            score: number | null;
+            spread: number | null;
+            confidence: string | null;
+            reason: string | null;
+            evidence: {
+                t_start: number;
+                t_end: number;
+                note: string;
+            }[];
+            flags: string[];
+            subscores: {
+                [key: string]: number | null;
+            };
+        };
+        VideoLevers: {
+            scorings: {
+                method: string;
+                analyzer_version: string;
+                rubric_version: number | null;
+                rubric_hash: string | null;
+                model: string | null;
+                input_mode: string | null;
+                job_id: number | null;
+                created_at: string;
+                aggregate: {
+                    [key: string]: components["schemas"]["LeverEntry"];
+                };
+                runs: {
+                    [key: string]: {
+                        [key: string]: components["schemas"]["LeverEntry"];
+                    };
+                };
+            }[];
+            moments: {
+                /** @enum {string} */
+                kind: "displayed" | "elicited" | "evidence";
+                lever: string | null;
+                t_start: number;
+                t_end: number | null;
+                intensity: number | null;
+                label: string | null;
+                run_idx: number | null;
+            }[];
+            probe: null | components["schemas"]["LeverProbe"];
+        };
+        LeverProbe: {
+            identified: boolean;
+            creator_guess: string | null;
+            title_guess: string | null;
+            confidence: string | null;
+            contaminated: boolean;
+            model: string | null;
+            input_mode: string | null;
+        };
+        LeverPairwiseRow: {
+            video_a: number;
+            video_b: number;
+            order: string;
+            lever: string;
+            winner_video_id: number | null;
+            confidence: string | null;
+            reason: string | null;
+            pair_key: string | null;
+            study_id: number | null;
+            model: string | null;
+            input_mode: string | null;
+            created_at: string;
+        };
+        LeverJobStart: {
+            job: components["schemas"]["JobSummary"] | null;
+            estimate: components["schemas"]["LeverEstimate"];
+            dropped_pairs?: number;
         };
     };
     responses: {
@@ -3788,6 +4074,348 @@ export interface operations {
                 };
                 content: {
                     "application/octet-stream": string;
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    leversConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Lever settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeversConfig"];
+                };
+            };
+        };
+    };
+    updateLeversConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeversConfig"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    testLeversConnection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    model?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ok: boolean;
+                        model: string;
+                        info?: {
+                            [key: string]: unknown;
+                        };
+                        error?: string;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    estimateLevers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    video_ids?: number[];
+                    pairs?: number[][];
+                    config?: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Calls, tokens and estimated cost */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        estimate: components["schemas"]["LeverEstimate"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    scoreLevers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    video_ids: number[];
+                };
+            };
+        };
+        responses: {
+            /** @description Job */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeverJobStart"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    leversABReport: {
+        parameters: {
+            query: {
+                video_ids: string;
+                model?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Upload vs URL aggregate per lever */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        rows: {
+                            video_id: number;
+                            lever: string;
+                            upload: number | null;
+                            youtube_url: number | null;
+                            difference: number | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    startLeversAB: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    video_ids: number[];
+                };
+            };
+        };
+        responses: {
+            /** @description Job */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        job: components["schemas"]["JobSummary"] | null;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    leversPairwise: {
+        parameters: {
+            query?: {
+                study_id?: number;
+                video_id?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pairwise judgments */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        rows: components["schemas"]["LeverPairwiseRow"][];
+                    };
+                };
+            };
+        };
+    };
+    startLeversPairwise: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    pairs: number[][];
+                };
+            };
+        };
+        responses: {
+            /** @description Job */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeverJobStart"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    studyLeversPairwise: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                study_id: components["parameters"]["StudyId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    estimate_only?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Job (or just the estimate) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        job?: components["schemas"]["JobSummary"] | null;
+                        estimate: components["schemas"]["LeverEstimate"];
+                        pairs?: number;
+                        dropped_pairs?: number;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    videoLevers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                video_id: components["parameters"]["VideoId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Lever scores */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VideoLevers"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    leversJobCost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Estimated vs actual cost */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        job_id: number;
+                        estimate: components["schemas"]["LeverEstimate"] | null;
+                        actual: {
+                            calls: number;
+                            input_tokens: number;
+                            output_tokens: number;
+                            cost_usd: number;
+                        };
+                    };
                 };
             };
             404: components["responses"]["Error"];
