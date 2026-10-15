@@ -92,6 +92,7 @@ class Channel(db.Model):
     # Pull new uploads automatically (track + media jobs). Off unless Evan turns it on.
     auto_track_new: Mapped[bool] = mapped_column(default=False)
     is_mine: Mapped[bool] = mapped_column(default=False)  # Evan's own channels
+    owned: Mapped[bool] = mapped_column(default=False)  # signed in via OAuth (owner data available)
     tags: Mapped[list] = mapped_column(JSON, default=list)
     notes: Mapped[str | None] = mapped_column(Text)
     added_at: Mapped[dt.datetime] = mapped_column(default=utcnow)
@@ -376,3 +377,176 @@ class StudyResult(db.Model):
     n_members: Mapped[int | None]
     computed_at: Mapped[dt.datetime] = mapped_column(default=utcnow)
     study: Mapped[Study] = relationship(back_populates="results")
+
+
+# ------------------------------------------------------------------ YouTube owner sync (OAuth + Analytics)
+
+
+class OAuthState(db.Model):
+    """A pending sign-in: the random `state` sent to Google, checked on the callback."""
+
+    __tablename__ = "oauth_states"
+    state: Mapped[str] = mapped_column(String(64), primary_key=True)
+    code_verifier: Mapped[str] = mapped_column(String(128))  # PKCE
+    created_by: Mapped[str] = mapped_column(String(80))
+    return_to: Mapped[str] = mapped_column(String(500))
+    created_at: Mapped[dt.datetime] = mapped_column(default=utcnow)
+
+
+class OwnerCredential(db.Model):
+    """An owner's OAuth grant for one channel. The refresh token is Fernet-encrypted."""
+
+    __tablename__ = "owner_credentials"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id", ondelete="CASCADE"), unique=True)
+    refresh_token_enc: Mapped[str] = mapped_column(Text)
+    scopes: Mapped[list] = mapped_column(JSON, default=list)
+    status: Mapped[str] = mapped_column(String(20), default="active")  # active | expired | revoked
+    status_detail: Mapped[str | None] = mapped_column(Text)
+    connected_by: Mapped[str] = mapped_column(String(80))
+    connected_at: Mapped[dt.datetime] = mapped_column(default=utcnow)
+    last_used_at: Mapped[dt.datetime | None]
+    channel: Mapped[Channel] = relationship()
+
+
+class OwnerSync(db.Model):
+    """One run of 'Sync data from YT'. Its id versions the retention snapshots it pulled."""
+
+    __tablename__ = "owner_syncs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id", ondelete="CASCADE"))
+    mode: Mapped[str] = mapped_column(String(10))  # full | new
+    status: Mapped[str] = mapped_column(String(16), default="running")  # running | done | failed
+    counts: Mapped[dict] = mapped_column(JSON, default=dict)
+    unavailable: Mapped[dict] = mapped_column(JSON, default=dict)  # metrics/reports the API refused
+    error: Mapped[str | None] = mapped_column(Text)
+    log: Mapped[list] = mapped_column(JSON, default=list)
+    started_by: Mapped[str] = mapped_column(String(80))
+    started_at: Mapped[dt.datetime] = mapped_column(default=utcnow)
+    finished_at: Mapped[dt.datetime | None]
+
+
+class AnalyticsReport(db.Model):
+    """Every Analytics/Data API response, raw, so nothing the API returned is lost."""
+
+    __tablename__ = "analytics_reports"
+    __table_args__ = (Index("ix_analytics_reports_video_report", "video_id", "report"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    sync_id: Mapped[int] = mapped_column(ForeignKey("owner_syncs.id", ondelete="CASCADE"))
+    video_id: Mapped[int | None] = mapped_column(ForeignKey("videos.id", ondelete="CASCADE"))
+    report: Mapped[str] = mapped_column(String(80))  # e.g. lifetime, daily, retention:ORGANIC, traffic_source
+    api: Mapped[str] = mapped_column(String(20), default="analytics")  # analytics | data
+    params: Mapped[dict] = mapped_column(JSON, default=dict)
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    error: Mapped[str | None] = mapped_column(Text)
+    fetched_at: Mapped[dt.datetime] = mapped_column(default=utcnow)
+
+
+class RetentionPoint(db.Model):
+    """Audience retention: one point of one curve, versioned by the sync that pulled it."""
+
+    __tablename__ = "retention_curves"
+    __table_args__ = (Index("ix_retention_video_sync", "video_id", "sync_id"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    video_id: Mapped[int] = mapped_column(ForeignKey("videos.id", ondelete="CASCADE"))
+    sync_id: Mapped[int] = mapped_column(ForeignKey("owner_syncs.id", ondelete="CASCADE"))
+    audience_type: Mapped[str] = mapped_column(String(20), default="ALL")
+    # Real owner Analytics. Never mixed with the public yt-dlp heatmap (video_heatmaps).
+    source: Mapped[str] = mapped_column(String(40), default="youtube_analytics")
+    elapsed_ratio: Mapped[float]
+    audience_watch_ratio: Mapped[float | None]
+    relative_retention_performance: Mapped[float | None]
+    video_duration_s: Mapped[int | None]
+    pulled_at: Mapped[dt.datetime] = mapped_column(default=utcnow)
+
+
+class VideoDailyStat(db.Model):
+    """Analytics per video per day (owner data)."""
+
+    __tablename__ = "video_daily_stats"
+    __table_args__ = (UniqueConstraint("video_id", "day"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    video_id: Mapped[int] = mapped_column(ForeignKey("videos.id", ondelete="CASCADE"))
+    day: Mapped[dt.date]
+    views: Mapped[int | None]
+    estimated_minutes_watched: Mapped[float | None]
+    average_view_duration: Mapped[float | None]
+    average_view_percentage: Mapped[float | None]
+    likes: Mapped[int | None]
+    dislikes: Mapped[int | None]
+    comments: Mapped[int | None]
+    shares: Mapped[int | None]
+    subscribers_gained: Mapped[int | None]
+    subscribers_lost: Mapped[int | None]
+    extra: Mapped[dict] = mapped_column(JSON, default=dict)
+    sync_id: Mapped[int | None] = mapped_column(ForeignKey("owner_syncs.id", ondelete="SET NULL"))
+
+
+class VideoLifetimeStat(db.Model):
+    """Lifetime Analytics metrics per video, one row per sync."""
+
+    __tablename__ = "video_lifetime_stats"
+    __table_args__ = (UniqueConstraint("video_id", "sync_id"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    video_id: Mapped[int] = mapped_column(ForeignKey("videos.id", ondelete="CASCADE"))
+    sync_id: Mapped[int] = mapped_column(ForeignKey("owner_syncs.id", ondelete="CASCADE"))
+    metrics: Mapped[dict] = mapped_column(JSON, default=dict)
+    pulled_at: Mapped[dt.datetime] = mapped_column(default=utcnow)
+
+
+class VideoBreakdown(db.Model):
+    """Lifetime breakdowns per video: traffic source, device, country, age/gender, subscribed status."""
+
+    __tablename__ = "video_breakdowns"
+    __table_args__ = (Index("ix_video_breakdowns_video_dim", "video_id", "dimension"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    video_id: Mapped[int] = mapped_column(ForeignKey("videos.id", ondelete="CASCADE"))
+    sync_id: Mapped[int] = mapped_column(ForeignKey("owner_syncs.id", ondelete="CASCADE"))
+    dimension: Mapped[str] = mapped_column(String(40))
+    key: Mapped[str] = mapped_column(String(120))
+    metrics: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+# ------------------------------------------------------------------ yt-dlp info captures ("Most replayed")
+
+
+class VideoInfoCapture(db.Model):
+    """One capture of a video's yt-dlp metadata: versions the heatmap and chapters."""
+
+    __tablename__ = "video_info_captures"
+    __table_args__ = (Index("ix_video_info_captures_video", "video_id", "captured_at"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    video_id: Mapped[int] = mapped_column(ForeignKey("videos.id", ondelete="CASCADE"))
+    job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id", ondelete="SET NULL"))
+    source: Mapped[str] = mapped_column(String(20))  # download | heatmap
+    captured_at: Mapped[dt.datetime] = mapped_column(default=utcnow)
+    snapshot: Mapped[dict] = mapped_column(JSON, default=dict)  # view/like/comment counts etc. at capture
+    heatmap_points: Mapped[int] = mapped_column(default=0)
+    chapter_count: Mapped[int] = mapped_column(default=0)
+
+
+class VideoHeatmapPoint(db.Model):
+    """YouTube's 'Most replayed' heatmap (about 100 segments, only on videos with enough views)."""
+
+    __tablename__ = "video_heatmaps"
+    __table_args__ = (Index("ix_video_heatmaps_capture", "capture_id"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    video_id: Mapped[int] = mapped_column(ForeignKey("videos.id", ondelete="CASCADE"))
+    capture_id: Mapped[int] = mapped_column(ForeignKey("video_info_captures.id", ondelete="CASCADE"))
+    # Public 'Most replayed' from yt-dlp. Never mixed with real retention (retention_curves).
+    source: Mapped[str] = mapped_column(String(40), default="yt_dlp_heatmap")
+    start_s: Mapped[float]
+    end_s: Mapped[float]
+    value: Mapped[float]
+    captured_at: Mapped[dt.datetime] = mapped_column(default=utcnow)
+
+
+class VideoChapter(db.Model):
+    __tablename__ = "video_chapters"
+    __table_args__ = (Index("ix_video_chapters_capture", "capture_id"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    video_id: Mapped[int] = mapped_column(ForeignKey("videos.id", ondelete="CASCADE"))
+    capture_id: Mapped[int] = mapped_column(ForeignKey("video_info_captures.id", ondelete="CASCADE"))
+    start_s: Mapped[float]
+    end_s: Mapped[float | None]
+    title: Mapped[str] = mapped_column(String(500), default="")

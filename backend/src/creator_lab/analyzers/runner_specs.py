@@ -51,5 +51,15 @@ TRIBE_TITLE = register(
     )
 )
 
-# Which asset kinds each analyzer's job needs on disk, and which job makes them.
-INPUT_PRODUCERS = {"media": "media", "title_text": None}
+HEATMAP = register(
+    Spec(
+        name="heatmap",
+        version="1",
+        title="Most replayed",
+        runner_type="cpu",
+        description="YouTube's 'Most replayed' heatmap, chapters and a stats snapshot from yt-dlp metadata. "
+        "No download; works on any public video. Downloads capture it too.",
+        inputs=[],
+        output_format="info.json + tables",
+    )
+)

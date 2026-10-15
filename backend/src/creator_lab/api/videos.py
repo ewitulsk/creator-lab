@@ -118,7 +118,7 @@ def video_detail(video_id: int):
             "privacy": v.privacy,
             "discovered_at": iso(v.discovered_at),
             "last_snapshot_at": iso(v.last_snapshot_at),
-            "channel": {"id": ch.id, "title": ch.title, "handle": ch.handle, "is_mine": ch.is_mine},
+            "channel": {"id": ch.id, "title": ch.title, "handle": ch.handle, "is_mine": ch.is_mine, "owned": ch.owned},
         },
         "snapshots": [video_snapshot(s) for s in v.snapshots],
         "assets": [asset_json(a) for a in v.assets],
@@ -178,3 +178,57 @@ def asset_file(asset_id: int):
         raise ApiError("file is missing on disk", 404)
     # conditional=True gives Range support, which the video player needs for seeking.
     return send_file(path, mimetype=MIME.get(path.suffix.lower()), conditional=True, max_age=3600)
+
+
+@bp.get("/videos/<int:video_id>/heatmap")
+def video_heatmap(video_id: int):
+    """YouTube's 'Most replayed' heatmap and chapters, per capture (latest with a heatmap by default)."""
+    from ..models import VideoChapter, VideoHeatmapPoint, VideoInfoCapture
+
+    v = get_video(video_id)
+    captures = list(
+        db.session.scalars(
+            db.select(VideoInfoCapture).where(VideoInfoCapture.video_id == v.id).order_by(VideoInfoCapture.captured_at)
+        )
+    )
+    chosen = None
+    if request.args.get("capture_id"):
+        chosen = next((c for c in captures if c.id == int(request.args["capture_id"])), None)
+        if chosen is None:
+            raise ApiError("capture not found", 404)
+    else:
+        with_points = [c for c in captures if c.heatmap_points]
+        chosen = (with_points or captures or [None])[-1]
+    points, chapters = [], []
+    if chosen is not None:
+        points = [
+            {"start_s": p.start_s, "end_s": p.end_s, "value": p.value}
+            for p in db.session.scalars(
+                db.select(VideoHeatmapPoint)
+                .where(VideoHeatmapPoint.capture_id == chosen.id)
+                .order_by(VideoHeatmapPoint.start_s)
+            )
+        ]
+        chapters = [
+            {"start_s": c.start_s, "end_s": c.end_s, "title": c.title}
+            for c in db.session.scalars(
+                db.select(VideoChapter).where(VideoChapter.capture_id == chosen.id).order_by(VideoChapter.start_s)
+            )
+        ]
+    return {
+        "captures": [
+            {
+                "id": c.id,
+                "captured_at": iso(c.captured_at),
+                "source": c.source,
+                "heatmap_points": c.heatmap_points,
+                "chapter_count": c.chapter_count,
+                "snapshot": c.snapshot or {},
+            }
+            for c in captures
+        ],
+        "capture_id": chosen.id if chosen else None,
+        "duration_s": v.duration_s,
+        "points": points,
+        "chapters": chapters,
+    }

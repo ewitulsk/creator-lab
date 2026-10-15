@@ -18,6 +18,7 @@ Run folder:
     features/<mod>_times.npy  float32 sample centre times (s)
     features/pooled.npz  time-averaged features within the input (per modality)
     regions.parquet      network and HCP-MMP1 area means per second
+    networks.json        the network means per second, small, for the platform
     embeddings.npz       same as features/pooled.npz (kept for the analyzers)
     meta.json            config, versions, hashes, hardware, dtypes, stage timings
     manifest.json        every file with size
@@ -166,6 +167,9 @@ def write_run(
         nets = [c for c in regions.columns if c.startswith("net_")]
         summary["network_means"] = {c[4:]: _f(regions[c].mean()) for c in nets}
         summary["network_means_first_30s"] = {c[4:]: _f(regions[c].iloc[:30].mean()) for c in nets}
+        # Small per-second network curves the platform reads directly (no parquet needed there).
+        networks = {"t": times.tolist(), "networks": {c[4:]: [_f(x) for x in regions[c]] for c in nets}}
+        (out_dir / "networks.json").write_text(json.dumps(networks), encoding="utf-8")
     summary["global_mean"] = _f(np.nanmean(grid))
     summary["words"] = int(len(words))
 

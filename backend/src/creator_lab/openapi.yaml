@@ -154,7 +154,7 @@ components:
         quota: { $ref: "#/components/schemas/Quota" }
     ChannelSummary:
       type: object
-      required: [id, external_id, handle, title, thumbnail_url, country, followed, auto_track_new, is_mine, tags, added_at, backfilled_at, last_synced_at, sync_error, syncing, subscribers, total_views, uploads, video_count, tracked_count, videos_by_format, disk_bytes]
+      required: [id, external_id, handle, title, thumbnail_url, country, followed, auto_track_new, is_mine, owned, tags, added_at, backfilled_at, last_synced_at, sync_error, syncing, subscribers, total_views, uploads, video_count, tracked_count, videos_by_format, disk_bytes]
       properties:
         id: { type: integer }
         external_id: { type: string }
@@ -165,6 +165,7 @@ components:
         followed: { type: boolean, description: Daily channel stats and new-upload checks }
         auto_track_new: { type: boolean, description: Pull new uploads automatically }
         is_mine: { type: boolean }
+        owned: { type: boolean, description: Connected with YouTube owner sign-in }
         tags: { type: array, items: { type: string } }
         added_at: { type: [string, "null"] }
         backfilled_at: { type: [string, "null"] }
@@ -287,12 +288,13 @@ components:
                 last_snapshot_at: { type: [string, "null"] }
                 channel:
                   type: object
-                  required: [id, title, handle, is_mine]
+                  required: [id, title, handle, is_mine, owned]
                   properties:
                     id: { type: integer }
                     title: { type: string }
                     handle: { type: [string, "null"] }
                     is_mine: { type: boolean }
+                    owned: { type: boolean }
         snapshots: { type: array, items: { $ref: "#/components/schemas/VideoSnapshot" } }
         assets: { type: array, items: { $ref: "#/components/schemas/Asset" } }
         analyzers: { type: array, items: { $ref: "#/components/schemas/AnalyzerStatus" } }
@@ -523,6 +525,106 @@ components:
       required: [job]
       properties:
         job: { $ref: "#/components/schemas/JobSummary" }
+    OwnerSync:
+      type: object
+      required: [id, channel_id, mode, status, counts, unavailable, error, log, started_by, started_at, finished_at]
+      properties:
+        id: { type: integer }
+        channel_id: { type: integer }
+        mode: { type: string, enum: [full, new] }
+        status: { type: string, enum: [running, done, failed] }
+        counts: { type: object, additionalProperties: { type: integer } }
+        unavailable:
+          type: object
+          description: Metrics or reports the API refused, by report name
+          additionalProperties: { type: array, items: { type: string } }
+        error: { type: [string, "null"] }
+        log: { type: array, items: { type: string } }
+        started_by: { type: string }
+        started_at: { type: [string, "null"] }
+        finished_at: { type: [string, "null"] }
+    OwnerCredentialInfo:
+      type: object
+      required: [channel, status, status_detail, scopes, connected_by, connected_at, last_used_at, last_sync, last_finished_sync, synced_videos]
+      properties:
+        channel:
+          type: object
+          required: [id, title, handle, thumbnail_url]
+          properties:
+            id: { type: integer }
+            title: { type: string }
+            handle: { type: [string, "null"] }
+            thumbnail_url: { type: [string, "null"] }
+        status: { type: string, enum: [active, expired, revoked] }
+        status_detail: { type: [string, "null"] }
+        scopes: { type: array, items: { type: string } }
+        connected_by: { type: string }
+        connected_at: { type: [string, "null"] }
+        last_used_at: { type: [string, "null"] }
+        last_sync: { oneOf: [{ $ref: "#/components/schemas/OwnerSync" }, { type: "null" }] }
+        last_finished_sync: { oneOf: [{ $ref: "#/components/schemas/OwnerSync" }, { type: "null" }] }
+        synced_videos: { type: integer }
+    RetentionPointInfo:
+      type: object
+      required: [ratio, seconds, watch_ratio, relative]
+      properties:
+        ratio: { type: number }
+        seconds: { type: [number, "null"] }
+        watch_ratio: { type: [number, "null"] }
+        relative: { type: [number, "null"] }
+    Engagement:
+      type: object
+      required: [owned, duration_s, retention, lifetime, daily, breakdowns, tribe]
+      properties:
+        owned: { type: boolean }
+        duration_s: { type: [integer, "null"] }
+        retention:
+          type: object
+          required: [sync_id, versions, curves]
+          properties:
+            sync_id: { type: [integer, "null"] }
+            versions: { type: array, items: { type: integer } }
+            curves:
+              type: object
+              description: Keyed by audience type (ALL, ORGANIC, AD_INSTREAM, ...)
+              additionalProperties: { type: array, items: { $ref: "#/components/schemas/RetentionPointInfo" } }
+        lifetime: { type: [object, "null"], additionalProperties: true }
+        daily:
+          type: array
+          items:
+            type: object
+            required: [day]
+            properties:
+              day: { type: string }
+              views: { type: [integer, "null"] }
+              estimated_minutes_watched: { type: [number, "null"] }
+              average_view_duration: { type: [number, "null"] }
+              average_view_percentage: { type: [number, "null"] }
+              likes: { type: [integer, "null"] }
+              comments: { type: [integer, "null"] }
+              shares: { type: [integer, "null"] }
+              subscribers_gained: { type: [integer, "null"] }
+              subscribers_lost: { type: [integer, "null"] }
+        breakdowns:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: object
+              required: [key]
+              properties:
+                key: { type: string }
+              additionalProperties: true
+        tribe:
+          oneOf:
+            - type: "null"
+            - type: object
+              required: [t, engagement, networks, definition]
+              properties:
+                t: { type: array, items: { type: number } }
+                engagement: { type: array, items: { type: [number, "null"] } }
+                networks: { type: object, additionalProperties: { type: array, items: { type: [number, "null"] } } }
+                definition: { type: string }
   parameters:
     JobId: { name: job_id, in: path, required: true, schema: { type: integer } }
     RunnerIdHeader: { name: X-Runner-Id, in: header, schema: { type: string }, description: The calling runner's id; mismatches get 409 }
@@ -1314,3 +1416,162 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Coverage" }
+  /api/youtube/owner:
+    get:
+      operationId: ownerStatus
+      responses:
+        "200":
+          description: OAuth configuration and connected channels (never any token)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [configured, redirect_uri, scopes, credentials]
+                properties:
+                  configured: { type: boolean }
+                  redirect_uri: { type: [string, "null"] }
+                  scopes: { type: array, items: { type: string } }
+                  credentials: { type: array, items: { $ref: "#/components/schemas/OwnerCredentialInfo" } }
+  /api/youtube/oauth/start:
+    post:
+      operationId: ownerOauthStart
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                return_to: { type: string, description: "Path on this site to come back to (default /settings)" }
+      responses:
+        "200":
+          description: Google's consent URL (single-use state, PKCE)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [auth_url]
+                properties:
+                  auth_url: { type: string }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/youtube/oauth/callback:
+    get:
+      operationId: ownerOauthCallback
+      security: []
+      description: Google redirects here. Checked by the single-use state; redirects back with ?youtube=connected or ?youtube=error.
+      parameters:
+        - { name: state, in: query, required: true, schema: { type: string } }
+        - { name: code, in: query, schema: { type: string } }
+        - { name: error, in: query, schema: { type: string } }
+      responses:
+        "302": { description: Back to the app }
+        "400": { description: Unknown or expired state }
+  /api/youtube/owner/{channel_id}/sync:
+    parameters: [{ $ref: "#/components/parameters/ChannelId" }]
+    post:
+      operationId: ownerSyncStart
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mode: { type: string, enum: [full, new], description: "full = re-pull everything (new retention version); new = only uploads since the last sync and never-synced ones" }
+      responses:
+        "200":
+          description: Started in the background
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sync]
+                properties:
+                  sync: { $ref: "#/components/schemas/OwnerSync" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/youtube/owner/syncs/{sync_id}:
+    parameters: [{ name: sync_id, in: path, required: true, schema: { type: integer } }]
+    get:
+      operationId: ownerSyncGet
+      responses:
+        "200":
+          description: Sync progress and counts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sync]
+                properties:
+                  sync: { $ref: "#/components/schemas/OwnerSync" }
+  /api/youtube/owner/{channel_id}:
+    parameters: [{ $ref: "#/components/parameters/ChannelId" }]
+    delete:
+      operationId: ownerDisconnect
+      description: Revoke the grant at Google and forget the token.
+      responses:
+        "200":
+          description: Disconnected
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ok" }
+  /api/videos/{video_id}/engagement:
+    parameters: [{ $ref: "#/components/parameters/VideoId" }]
+    get:
+      operationId: videoEngagement
+      parameters:
+        - { name: sync_id, in: query, schema: { type: integer }, description: Retention snapshot version (default latest) }
+      responses:
+        "200":
+          description: Owner analytics for the video, with the TRIBE engagement curve when available
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Engagement" }
+  /api/videos/{video_id}/heatmap:
+    parameters: [{ $ref: "#/components/parameters/VideoId" }]
+    get:
+      operationId: videoHeatmap
+      description: Public 'Most replayed' heatmap (yt-dlp). Stored apart from the owner's real retention curves.
+      parameters:
+        - { name: capture_id, in: query, schema: { type: integer }, description: A specific capture (default latest with points) }
+      responses:
+        "200":
+          description: Heatmap and chapters for one capture, plus the list of captures
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [captures, capture_id, duration_s, points, chapters]
+                properties:
+                  captures:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, captured_at, source, heatmap_points, chapter_count, snapshot]
+                      properties:
+                        id: { type: integer }
+                        captured_at: { type: [string, "null"] }
+                        source: { type: string, enum: [download, heatmap] }
+                        heatmap_points: { type: integer }
+                        chapter_count: { type: integer }
+                        snapshot: { type: object, additionalProperties: true }
+                  capture_id: { type: [integer, "null"] }
+                  duration_s: { type: [integer, "null"] }
+                  points:
+                    type: array
+                    items:
+                      type: object
+                      required: [start_s, end_s, value]
+                      properties:
+                        start_s: { type: number }
+                        end_s: { type: number }
+                        value: { type: number }
+                  chapters:
+                    type: array
+                    items:
+                      type: object
+                      required: [start_s, end_s, title]
+                      properties:
+                        start_s: { type: number }
+                        end_s: { type: [number, "null"] }
+                        title: { type: string }
+        "404": { $ref: "#/components/responses/Error" }

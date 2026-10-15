@@ -25,7 +25,7 @@ const columns: ColumnDef<Channel>[] = [
         <div className="min-w-0">
           <div className="flex items-center gap-2 font-medium">
             <span className="truncate">{c.title || c.external_id}</span>
-            {c.is_mine ? <Badge tone="primary">mine</Badge> : null}
+            {c.owned ? <Badge tone="primary">owned</Badge> : c.is_mine ? <Badge tone="primary">mine</Badge> : null}
           </div>
           <div className="text-xs text-muted-foreground">{c.handle}</div>
         </div>

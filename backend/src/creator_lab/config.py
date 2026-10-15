@@ -40,6 +40,9 @@ class Config:
     brainthing_dir: Path | None
     max_video_height: int
     frontend_dist: Path
+    google_client_id: str | None = None
+    google_client_secret: str | None = None
+    google_redirect_uri: str | None = None
     testing: bool = False
     start_scheduler: bool = True
     extra: dict = field(default_factory=dict)
@@ -71,4 +74,7 @@ class Config:
             max_video_height=min(max(height, 144), 1080),
             frontend_dist=Path(os.environ.get("FRONTEND_DIST") or REPO_ROOT / "frontend" / "dist"),
             start_scheduler=os.environ.get("DISABLE_SCHEDULER", "") not in ("1", "true", "yes"),
+            google_client_id=os.environ.get("GOOGLE_OAUTH_CLIENT_ID"),
+            google_client_secret=os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET"),
+            google_redirect_uri=os.environ.get("GOOGLE_OAUTH_REDIRECT_URI"),
         )

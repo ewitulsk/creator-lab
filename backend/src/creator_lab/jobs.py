@@ -293,7 +293,7 @@ def item_payload(job: Job, item: JobItem) -> dict:
         kind = INPUT_ASSET.get(name)
         a = assets.get(kind) if kind else None
         inputs[name] = input_ref(absolute(a.path)) if a else None
-    if job.job_type in ("media", "captions"):
+    if job.job_type in ("media", "captions", "heatmap"):
         out = media_dir(ch.external_id, v.external_id)
     else:
         out = analyzer_dir(job.analyzer.name, job.analyzer.version, v.external_id)
@@ -452,6 +452,15 @@ def report_item_result(job: Job, video_id: int, data: dict) -> None:
             row.output_path = rel(Path(data["output_path"]))
         for a in data.get("assets") or []:
             register_asset(item.video, a)
+        if isinstance(data.get("capture"), dict):
+            from .captures import store_capture
+
+            source = "heatmap" if job.job_type == "heatmap" else "download"
+            cap = store_capture(item.video, data["capture"], job.id, source)
+            if job.job_type != "heatmap":  # a download's metadata includes the heatmap too
+                hm = result_row(video_id, current("heatmap"))
+                hm.status, hm.computed_at, hm.job_id = "done", now, job.id
+                hm.summary = {"points": cap.heatmap_points, "chapters": cap.chapter_count, "source": "download"}
         updates = data.get("video_updates") or {}
         if updates.get("format") in ("live", "premiere"):
             item.video.format = updates["format"]

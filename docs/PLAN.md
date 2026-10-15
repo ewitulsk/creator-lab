@@ -165,6 +165,28 @@ Evan's own channel (https://www.youtube.com/@evanwitulski) gets the data only th
   curve. When a TRIBE result exists, the TRIBE engagement curve is overlaid on the same
   time axis.
 
+## "Most replayed" heatmap (public, yt-dlp)
+
+- Downloads save the full yt-dlp info dict as `info.json` next to the video (sanitized:
+  no cookies or request headers) and register it as an asset.
+- Its `heatmap` (about 100 segments with start, end and value, only on videos with enough
+  views), `chapters` and a stats snapshot (view, like and comment counts at capture) go
+  into `video_info_captures`, `video_heatmaps` and `video_chapters`, versioned per capture.
+- A lightweight **`heatmap@1`** job does the same **without downloading** (metadata
+  only), for any public video: discovered ones and other creators' too.
+- UI: the Most Replayed curve sits under the player on the video's time axis, and is its
+  own column in the coverage grid.
+- **Kept strictly separate from the owner's real Analytics data.** The public heatmap
+  (`video_heatmaps`, source `yt_dlp_heatmap`) and real retention (`retention_curves`,
+  source `youtube_analytics`) are separate tables and are never merged, backfilled or
+  overwritten from each other. For owned videos that have both, the video page overlays
+  them on one time axis, labelled as public heatmap versus real retention.
+- Studies: the heatmap is a target signal in the retention study (the public proxy for
+  engagement over time, so the TRIBE-versus-engagement test can run on other creators'
+  channels). A "heatmap versus real retention" analysis (per-video correlation,
+  aggregated across owned videos) measures how good a proxy it is. The methodology stays
+  unlocked.
+
 ## Runner API (Bearer `RUNNER_TOKEN`)
 
 | call | purpose |

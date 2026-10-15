@@ -673,6 +673,147 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/youtube/owner": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ownerStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/youtube/oauth/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["ownerOauthStart"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/youtube/oauth/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Google redirects here. Checked by the single-use state; redirects back with ?youtube=connected or ?youtube=error. */
+        get: operations["ownerOauthCallback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/youtube/owner/{channel_id}/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channel_id: components["parameters"]["ChannelId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["ownerSyncStart"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/youtube/owner/syncs/{sync_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sync_id: number;
+            };
+            cookie?: never;
+        };
+        get: operations["ownerSyncGet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/youtube/owner/{channel_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channel_id: components["parameters"]["ChannelId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Revoke the grant at Google and forget the token. */
+        delete: operations["ownerDisconnect"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/videos/{video_id}/engagement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                video_id: components["parameters"]["VideoId"];
+            };
+            cookie?: never;
+        };
+        get: operations["videoEngagement"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/videos/{video_id}/heatmap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                video_id: components["parameters"]["VideoId"];
+            };
+            cookie?: never;
+        };
+        /** @description Public 'Most replayed' heatmap (yt-dlp). Stored apart from the owner's real retention curves. */
+        get: operations["videoHeatmap"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -781,6 +922,8 @@ export interface components {
             /** @description Pull new uploads automatically */
             auto_track_new: boolean;
             is_mine: boolean;
+            /** @description Connected with YouTube owner sign-in */
+            owned: boolean;
             tags: string[];
             added_at: string | null;
             backfilled_at: string | null;
@@ -888,6 +1031,7 @@ export interface components {
                     title: string;
                     handle: string | null;
                     is_mine: boolean;
+                    owned: boolean;
                 };
             };
             snapshots: components["schemas"]["VideoSnapshot"][];
@@ -1089,6 +1233,92 @@ export interface components {
         };
         JobResponse: {
             job: components["schemas"]["JobSummary"];
+        };
+        OwnerSync: {
+            id: number;
+            channel_id: number;
+            /** @enum {string} */
+            mode: "full" | "new";
+            /** @enum {string} */
+            status: "running" | "done" | "failed";
+            counts: {
+                [key: string]: number;
+            };
+            /** @description Metrics or reports the API refused, by report name */
+            unavailable: {
+                [key: string]: string[];
+            };
+            error: string | null;
+            log: string[];
+            started_by: string;
+            started_at: string | null;
+            finished_at: string | null;
+        };
+        OwnerCredentialInfo: {
+            channel: {
+                id: number;
+                title: string;
+                handle: string | null;
+                thumbnail_url: string | null;
+            };
+            /** @enum {string} */
+            status: "active" | "expired" | "revoked";
+            status_detail: string | null;
+            scopes: string[];
+            connected_by: string;
+            connected_at: string | null;
+            last_used_at: string | null;
+            last_sync: components["schemas"]["OwnerSync"] | null;
+            last_finished_sync: components["schemas"]["OwnerSync"] | null;
+            synced_videos: number;
+        };
+        RetentionPointInfo: {
+            ratio: number;
+            seconds: number | null;
+            watch_ratio: number | null;
+            relative: number | null;
+        };
+        Engagement: {
+            owned: boolean;
+            duration_s: number | null;
+            retention: {
+                sync_id: number | null;
+                versions: number[];
+                /** @description Keyed by audience type (ALL, ORGANIC, AD_INSTREAM, ...) */
+                curves: {
+                    [key: string]: components["schemas"]["RetentionPointInfo"][];
+                };
+            };
+            lifetime: {
+                [key: string]: unknown;
+            } | null;
+            daily: {
+                day: string;
+                views?: number | null;
+                estimated_minutes_watched?: number | null;
+                average_view_duration?: number | null;
+                average_view_percentage?: number | null;
+                likes?: number | null;
+                comments?: number | null;
+                shares?: number | null;
+                subscribers_gained?: number | null;
+                subscribers_lost?: number | null;
+            }[];
+            breakdowns: {
+                [key: string]: ({
+                    key: string;
+                } & {
+                    [key: string]: unknown;
+                })[];
+            };
+            tribe: null | {
+                t: number[];
+                engagement: (number | null)[];
+                networks: {
+                    [key: string]: (number | null)[];
+                };
+                definition: string;
+            };
         };
     };
     responses: {
@@ -2354,6 +2584,247 @@ export interface operations {
                     "application/json": components["schemas"]["Coverage"];
                 };
             };
+        };
+    };
+    ownerStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OAuth configuration and connected channels (never any token) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        configured: boolean;
+                        redirect_uri: string | null;
+                        scopes: string[];
+                        credentials: components["schemas"]["OwnerCredentialInfo"][];
+                    };
+                };
+            };
+        };
+    };
+    ownerOauthStart: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description Path on this site to come back to (default /settings) */
+                    return_to?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Google's consent URL (single-use state, PKCE) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        auth_url: string;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    ownerOauthCallback: {
+        parameters: {
+            query: {
+                state: string;
+                code?: string;
+                error?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Back to the app */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unknown or expired state */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ownerSyncStart: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channel_id: components["parameters"]["ChannelId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @description full = re-pull everything (new retention version); new = only uploads since the last sync and never-synced ones
+                     * @enum {string}
+                     */
+                    mode?: "full" | "new";
+                };
+            };
+        };
+        responses: {
+            /** @description Started in the background */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        sync: components["schemas"]["OwnerSync"];
+                    };
+                };
+            };
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    ownerSyncGet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sync_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sync progress and counts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        sync: components["schemas"]["OwnerSync"];
+                    };
+                };
+            };
+        };
+    };
+    ownerDisconnect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channel_id: components["parameters"]["ChannelId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Disconnected */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
+                };
+            };
+        };
+    };
+    videoEngagement: {
+        parameters: {
+            query?: {
+                /** @description Retention snapshot version (default latest) */
+                sync_id?: number;
+            };
+            header?: never;
+            path: {
+                video_id: components["parameters"]["VideoId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Owner analytics for the video, with the TRIBE engagement curve when available */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Engagement"];
+                };
+            };
+        };
+    };
+    videoHeatmap: {
+        parameters: {
+            query?: {
+                /** @description A specific capture (default latest with points) */
+                capture_id?: number;
+            };
+            header?: never;
+            path: {
+                video_id: components["parameters"]["VideoId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Heatmap and chapters for one capture, plus the list of captures */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        captures: {
+                            id: number;
+                            captured_at: string | null;
+                            /** @enum {string} */
+                            source: "download" | "heatmap";
+                            heatmap_points: number;
+                            chapter_count: number;
+                            snapshot: {
+                                [key: string]: unknown;
+                            };
+                        }[];
+                        capture_id: number | null;
+                        duration_s: number | null;
+                        points: {
+                            start_s: number;
+                            end_s: number;
+                            value: number;
+                        }[];
+                        chapters: {
+                            start_s: number;
+                            end_s: number | null;
+                            title: string;
+                        }[];
+                    };
+                };
+            };
+            404: components["responses"]["Error"];
         };
     };
 }

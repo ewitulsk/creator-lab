@@ -1,6 +1,7 @@
 import { CheckCircle2, XCircle } from "lucide-react";
 import { useState } from "react";
 import type { Schemas } from "@/api/client";
+import { OwnerSyncCard } from "@/components/OwnerSyncCard";
 import { useChangePassword, useSaveSchedules, useSettings } from "@/api/queries";
 import { Button } from "@/components/ui/button";
 import {
@@ -75,6 +76,8 @@ function SettingsView({ data }: { data: Schemas["Settings"] }) {
           ))}
         </CardContent>
       </Card>
+
+      <OwnerSyncCard />
 
       <Card>
         <CardHeader>

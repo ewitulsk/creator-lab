@@ -65,10 +65,12 @@ class YouTubeClient:
         budget: Callable[[], int],
         transport: httpx.BaseTransport | None = None,
         count_quota: bool = True,
+        access_token: str | None = None,
     ):
-        if not api_key:
+        if not api_key and not access_token:
             raise YouTubeError("YOUTUBE_API_KEY is not set in backend/.env")
         self.api_key = api_key
+        self.access_token = access_token  # OAuth (owner) calls see private/unlisted uploads
         self.budget = budget
         self.count_quota = count_quota
         self.http = httpx.Client(timeout=30, transport=transport, follow_redirects=False)
@@ -78,10 +80,14 @@ class YouTubeClient:
     def _get(self, endpoint: str, params: dict, units: int = 1) -> dict:
         if self.count_quota:
             check_budget(units, self.budget())
-        params = {**params, "key": self.api_key}
+        headers = {}
+        if self.access_token:
+            headers["Authorization"] = f"Bearer {self.access_token}"
+        else:
+            params = {**params, "key": self.api_key}
         for attempt in range(3):
             try:
-                resp = self.http.get(f"{API}/{endpoint}", params=params)
+                resp = self.http.get(f"{API}/{endpoint}", params=params, headers=headers)
             except httpx.TransportError as err:
                 if attempt == 2:
                     raise YouTubeError(f"network error calling {endpoint}: {err}") from err

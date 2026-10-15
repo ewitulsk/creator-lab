@@ -1,13 +1,15 @@
 import * as Plot from "@observablehq/plot";
 import { Link, useParams } from "@tanstack/react-router";
 import { Download, ExternalLink, Play, RefreshCw } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRefreshVideo, useVideo } from "@/api/channels";
 import type { Schemas } from "@/api/client";
 import { usePull } from "@/api/discover";
 import { useIssueJobs } from "@/api/jobs";
 import { FormatBadge, OutlierBadge, StatusBadge } from "@/components/badges";
 import { PlotFigure } from "@/components/PlotFigure";
+import { MostReplayed } from "@/components/MostReplayed";
+import { RealEngagement } from "@/components/RealEngagement";
 import { Button } from "@/components/ui/button";
 import { Alert, Badge, Card, CardContent, CardHeader, CardTitle, Spinner, Stat, Tabs } from "@/components/ui/primitives";
 import { fmtBytes, fmtCount, fmtDate, fmtDateTime, fmtDuration, fmtRatio } from "@/lib/format";
@@ -102,6 +104,7 @@ export function VideoDetailPage() {
   const refresh = useRefreshVideo(id);
   const pull = usePull();
   const [tab, setTab] = useState<string>("");
+  const player = useRef<HTMLVideoElement>(null);
 
   if (q.isLoading) return <Spinner />;
   if (q.error || !q.data) return <Alert tone="destructive">{q.error?.message ?? "Not found"}</Alert>;
@@ -123,6 +126,7 @@ export function VideoDetailPage() {
             <span>· {fmtDuration(v.duration_s)}</span>
             <FormatBadge format={v.format} />
             {v.selection === "tracked" ? <Badge tone="success">pulled</Badge> : <Badge tone="outline">discovered</Badge>}
+            {v.channel.owned ? <Badge tone="primary">owned</Badge> : null}
             {v.gone ? <Badge tone="destructive">removed from YouTube</Badge> : null}
             <a href={v.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-foreground">
               YouTube <ExternalLink className="size-3" />
@@ -145,10 +149,17 @@ export function VideoDetailPage() {
       <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <div className="space-y-4">
           {media ? (
-            <video src={media.url} controls className="w-full rounded-xl bg-black" poster={v.thumbnail} />
+            <video ref={player} src={media.url} controls className="w-full rounded-xl bg-black" poster={v.thumbnail} />
           ) : (
             <img src={v.thumbnail} alt="" className="w-full rounded-xl" referrerPolicy="no-referrer" />
           )}
+          <MostReplayed
+            videoId={v.id}
+            durationS={v.duration_s}
+            onSeek={(s) => {
+              if (player.current) player.current.currentTime = s;
+            }}
+          />
           <StatsOverTime snapshots={snapshots} publishedAt={v.published_at} />
         </div>
         <div className="space-y-4">
@@ -219,6 +230,11 @@ export function VideoDetailPage() {
           </Card>
         </div>
       </div>
+      {v.channel.owned ? (
+        <div className="mt-4">
+          <RealEngagement videoId={v.id} />
+        </div>
+      ) : null}
     </div>
   );
 }

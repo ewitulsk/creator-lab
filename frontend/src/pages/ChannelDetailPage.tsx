@@ -162,7 +162,7 @@ export function ChannelDetailPage() {
         {ch.thumbnail_url ? <img src={ch.thumbnail_url} alt="" className="size-16 rounded-full" referrerPolicy="no-referrer" /> : null}
         <div className="min-w-0 flex-1">
           <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-            {ch.title} {ch.is_mine ? <Badge tone="primary">mine</Badge> : null}
+            {ch.title} {ch.owned ? <Badge tone="primary">owned</Badge> : ch.is_mine ? <Badge tone="primary">mine</Badge> : null}
           </h1>
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <span>{ch.handle}</span>

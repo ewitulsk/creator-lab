@@ -17,6 +17,7 @@ def channel_summary(ch: Channel, stats: dict | None = None) -> dict:
         "followed": ch.followed,
         "auto_track_new": ch.auto_track_new,
         "is_mine": ch.is_mine,
+        "owned": ch.owned,
         "tags": ch.tags or [],
         "added_at": iso(ch.added_at),
         "backfilled_at": iso(ch.backfilled_at),

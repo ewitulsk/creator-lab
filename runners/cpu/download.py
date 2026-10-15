@@ -13,6 +13,7 @@ from pathlib import Path
 
 from ..common.media import encode_h264, probe, remux_faststart, sha256
 from ..common.runner import Reporter, RetryableError
+from .info import capture_from_info, save_info
 
 log = logging.getLogger("runner.download")
 
@@ -73,7 +74,7 @@ def download_one(item: dict, max_height: int, reporter: Reporter) -> dict:
     }
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(item["url"], download=True)
+            info = ydl.sanitize_info(ydl.extract_info(item["url"], download=True))
     except yt_dlp.utils.DownloadError as err:
         msg = str(err)
         if any(h in msg for h in THROTTLE_HINTS):
@@ -106,6 +107,7 @@ def download_one(item: dict, max_height: int, reporter: Reporter) -> dict:
         raise RuntimeError(f"downloaded file is {meta['height']}p, above the {max_height}p cap")
     reporter.update(stage_percent=95, message="hashing")
     live_status = info.get("live_status")
+    info_path = save_info(info, out_dir / "info.json")
     result = {
         "status": "done",
         "output_path": str(final),
@@ -130,8 +132,11 @@ def download_one(item: dict, max_height: int, reporter: Reporter) -> dict:
                 "height": meta["height"],
                 "codec": f"{meta['vcodec']}/{meta['acodec']}",
                 "meta": {"fps": meta["fps"], "duration_s": meta["duration"], "yt_format": info.get("format_id")},
-            }
+            },
+            {"kind": "info", "path": str(info_path), "bytes": info_path.stat().st_size},
         ],
+        # Most replayed heatmap, chapters and a stats snapshot (the platform stores them as tables).
+        "capture": capture_from_info(info),
     }
     if live_status in ("was_live", "post_live", "is_live"):
         result["video_updates"] = {"format": "live"}
