@@ -97,11 +97,21 @@ def install_tqdm_hook() -> None:
 
 FP16_MODELS = ("llama", "vjepa2")
 _fp16_enabled = True
+_half_dtype = "float16"  # or "bfloat16"
 
 
-def set_fp16(enabled: bool) -> None:
-    global _fp16_enabled
+def set_fp16(enabled: bool, dtype: str = "float16") -> None:
+    global _fp16_enabled, _half_dtype
+    if dtype not in ("float16", "bfloat16"):
+        raise ValueError("half precision dtype must be float16 or bfloat16")
     _fp16_enabled = enabled
+    _half_dtype = dtype
+
+
+def half_dtype():
+    import torch
+
+    return getattr(torch, _half_dtype)
 
 
 def _to_float32(obj):
@@ -136,17 +146,21 @@ def _cast_inputs(dtype):
     return hook
 
 
-def make_fp16(model):
-    """Wrap a float16 model so callers keep seeing float32 tensors."""
-    import torch
+def make_fp16(model, dtype=None):
+    """Wrap a half-precision model so callers keep seeing float32 tensors."""
+    pre = _cast_inputs(dtype if dtype is not None else half_dtype())
 
-    model.register_forward_pre_hook(_cast_inputs(torch.float16), with_kwargs=True)
-    model.register_forward_hook(lambda _m, _a, out: _to_float32(out))
+    def post(_module, _args, out):
+        return _to_float32(out)
+
+    pre._creator_lab_cast = True
+    post._creator_lab_cast = True
+    model.register_forward_pre_hook(pre, with_kwargs=True)
+    model.register_forward_hook(post)
     return model
 
 
 def install_fp16_loading() -> None:
-    import torch
     import transformers
 
     for cls_name in ("AutoModel", "AutoModelForCausalLM"):
@@ -159,10 +173,10 @@ def install_fp16_loading() -> None:
             wants_fp16 = _fp16_enabled and any(k in str(name).lower() for k in FP16_MODELS)
             if wants_fp16:
                 kwargs.pop("torch_dtype", None)
-                kwargs["dtype"] = torch.float16
-                log.info("loading %s in float16", name)
+                kwargs["dtype"] = half_dtype()
+                log.info("loading %s in %s", name, _half_dtype)
             model = _orig(klass, name, *args, **kwargs)
-            return make_fp16(model) if wants_fp16 else model
+            return make_fp16(model, half_dtype()) if wants_fp16 else model
 
         from_pretrained._creator_lab_fp16 = True
         cls.from_pretrained = classmethod(from_pretrained)

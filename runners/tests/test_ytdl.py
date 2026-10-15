@@ -19,3 +19,14 @@ def test_runtime_names_are_ones_yt_dlp_supports():
     from yt_dlp.globals import supported_js_runtimes
 
     assert set(ytdl.RUNTIMES) <= set(supported_js_runtimes.value)
+
+
+def test_age_restriction_is_not_throttling():
+    from runners.cpu.download import classify_error
+
+    age = "ERROR: [youtube] x: Sign in to confirm your age. Use --cookies-from-browser"
+    bot = "ERROR: [youtube] x: Sign in to confirm you're not a bot"
+    assert classify_error(age) == "sign_in"
+    assert classify_error(bot) == "throttled"
+    assert classify_error("HTTP Error 429: Too Many Requests") == "throttled"
+    assert classify_error("HTTP Error 403: Forbidden") == "other"

@@ -37,14 +37,19 @@ VIDEO_STAGES = ["Load TRIBE", "Audio + WhisperX", "Llama-3.2-3B", "w2v-BERT 2.0"
 TITLE_STAGES = ["Load TRIBE", "TTS + WhisperX", "Llama-3.2-3B", "w2v-BERT 2.0", "TRIBE predict"]
 EXTRACTOR_STAGES = {"Llama-3.2-3B": "text_feature", "w2v-BERT 2.0": "audio_feature", "V-JEPA2": "video_feature"}
 EVENTS_VERSION = "2"  # bump when build_*_events changes
-RUNNER_VERSION = "1.1"
+RUNNER_VERSION = "1.2"
 
 
 @dataclass
 class RunOptions:
     """Per-job switches (job params override the defaults)."""
 
-    fp16: bool = True  # Llama-3.2-3B and V-JEPA2 in float16
+    fp16: bool = True  # Llama-3.2-3B and V-JEPA2 in half precision
+    half_dtype: str = "float16"  # float16 or bfloat16 (chosen by the 5070 Ti check, docs/tribe-speed.md)
+    # V-JEPA2: decode each video once, prepare clips on a CPU thread, several clips per forward
+    fast_video: bool = True
+    video_batch_size: int = 1  # GPU-bound at 1 on the 5070 Ti; 1 is also bit-identical to neuralset
+    video_prefetch: int = 8
     # fixed: transcribe the whole audio, then chunk. original: tribev2's demo order
     # (chunk, then copy the full transcript into every chunk), kept for comparison only.
     word_alignment: str = "fixed"
@@ -56,10 +61,24 @@ class RunOptions:
     @classmethod
     def from_params(cls, params: dict | None) -> RunOptions:
         params = params or {}
-        known = {k: params[k] for k in ("fp16", "word_alignment", "features_dir", "seed_cache") if k in params}
+        names = (
+            "fp16",
+            "half_dtype",
+            "fast_video",
+            "video_batch_size",
+            "video_prefetch",
+            "word_alignment",
+            "features_dir",
+            "seed_cache",
+        )
+        known = {k: params[k] for k in names if k in params}
         opts = cls(**known)
         if opts.word_alignment not in ("fixed", "original"):
             raise ValueError("word_alignment must be fixed or original")
+        if opts.half_dtype not in ("float16", "bfloat16"):
+            raise ValueError("half_dtype must be float16 or bfloat16")
+        if opts.video_batch_size < 1 or opts.video_prefetch < 1:
+            raise ValueError("video_batch_size and video_prefetch must be at least 1")
         return opts
 
 
@@ -131,7 +150,12 @@ class TribePipeline:
         from tribev2 import TribeModel
 
         patches.install_all()
-        patches.set_fp16(self.options.fp16)
+        patches.set_fp16(self.options.fp16, self.options.half_dtype)
+        if self.options.fast_video:
+            from . import vjepa_fast
+
+            vjepa_fast.configure(batch_size=self.options.video_batch_size, prefetch=self.options.video_prefetch)
+            vjepa_fast.install()
         features = self.cache_dir / self.options.features_dir
         features.mkdir(parents=True, exist_ok=True)
         self.progress.update(message="loading the TRIBE checkpoint")

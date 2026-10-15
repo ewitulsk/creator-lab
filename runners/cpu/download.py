@@ -18,7 +18,18 @@ from .ytdl import base_opts
 
 log = logging.getLogger("runner.download")
 
-THROTTLE_HINTS = ("HTTP Error 429", "Too Many Requests", "Sign in to confirm", "rate-limit")
+THROTTLE_HINTS = ("HTTP Error 429", "Too Many Requests", "Sign in to confirm you", "rate-limit")
+# Not throttling: these need a signed-in YouTube session (cookies), so retrying won't help.
+NEEDS_SIGN_IN = ("confirm your age", "age-restricted", "members-only", "Join this channel")
+
+
+def classify_error(msg: str) -> str:
+    """'sign_in', 'throttled' or 'other' for a yt-dlp error message."""
+    if any(h.lower() in msg.lower() for h in NEEDS_SIGN_IN):
+        return "sign_in"
+    if any(h in msg for h in THROTTLE_HINTS):
+        return "throttled"
+    return "other"
 
 
 def format_selector(max_height: int) -> str:
@@ -76,7 +87,12 @@ def download_one(item: dict, max_height: int, reporter: Reporter) -> dict:
             info = ydl.sanitize_info(ydl.extract_info(item["url"], download=True))
     except yt_dlp.utils.DownloadError as err:
         msg = str(err)
-        if any(h in msg for h in THROTTLE_HINTS):
+        kind = classify_error(msg)
+        if kind == "sign_in":
+            raise RuntimeError(
+                f"YouTube needs a signed-in session for this video (age-restricted?): {msg[:200]}"
+            ) from err
+        if kind == "throttled":
             raise RetryableError(f"YouTube is throttling downloads: {msg[:300]}") from err
         raise
     raw = next((p for p in out_dir.glob("video.download.*") if p.suffix != ".part"), None)

@@ -74,16 +74,19 @@ def collect_meta(xp, options, seeded: dict, runner_version: str, events_version:
         "hardware": {"host": platform.node()},
         "dtypes": {
             "whisperx": "float16 (uvx whisperx, faster-whisper large-v3)",
-            "llama": "float16" if options.fp16 else "float32",
-            "vjepa2": "float16" if options.fp16 else "float32",
+            "llama": options.half_dtype if options.fp16 else "float32",
+            "vjepa2": options.half_dtype if options.fp16 else "float32",
             "w2v_bert": "float32",
             "tribe": "float32",
             "outputs": "float16 preds; features stored float16",
         },
         "patches": [
-            "fp16 loading for Llama-3.2-3B and V-JEPA2 (inputs cast in, outputs cast back to float32)"
+            f"{options.half_dtype} loading for Llama-3.2-3B and V-JEPA2 (inputs cast in, outputs cast back to float32)"
             if options.fp16
-            else "fp16 off",
+            else "half precision off",
+            f"V-JEPA2 fast path: one sequential decode per video, CPU prefetch, batch {options.video_batch_size}"
+            if options.fast_video
+            else "V-JEPA2 via neuralset's per-clip moviepy path",
             "words transcribed before chunking" if options.word_alignment == "fixed" else "tribev2 demo word order",
             "extractor models freed after each stage",
             "tqdm and WhisperX progress hooks",
