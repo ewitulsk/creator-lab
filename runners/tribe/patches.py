@@ -237,8 +237,18 @@ def install_whisperx_progress() -> None:
             env = {k: v for k, v in os.environ.items() if k != "MPLBACKEND"}
             env.setdefault("TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD", "1")
             env["PYTHONUNBUFFERED"] = "1"
+            # whisperx prints each transcript line; on Windows the default cp1252 console
+            # encoding crashes it on non-Latin text (e.g. Chinese), so force UTF-8 both ways.
+            env["PYTHONIOENCODING"] = "utf-8"
+            env["PYTHONUTF8"] = "1"
             proc = subprocess.Popen(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env, errors="replace"
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                env=env,
+                encoding="utf-8",
+                errors="replace",
             )
             assert proc.stdout is not None
             phase, last, tail = 0, 0.0, []
