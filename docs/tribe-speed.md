@@ -42,6 +42,30 @@ Memory: 3.1 GB allocated at batch 1, ~4 GB used on the card in total, far below 
 so no shared-memory (sysmem) fallback. One model is on the GPU at a time; extractor models
 are freed and the CUDA cache emptied between stages.
 
+## Llama-3.2-3B word features
+
+Each word is embedded with its preceding context (~1,300 tokens on long videos), so every
+word is a full forward pass. neuralset copies all 29 layers of every context token to the
+CPU per batch (~1.5 GB per batch of 4, float32) before picking out the word's tokens; the
+GPU idled and the stage ran at ~1.7 words/s on the first real batch (~11 h for 68,700
+words). `runners/tribe/text_fast.py` slices each word's tokens on the GPU and runs
+neuralset's own `_aggregate_tokens` there (same exca cache keys).
+
+Measured on 96 mid-video words from a 1h49m transcript:
+
+| | s per word | vs neuralset | peak VRAM | features vs neuralset |
+|---|---|---|---|---|
+| neuralset, batch 4 | 0.229 | 1x | | |
+| fast, batch 4 | 0.161 | 1.43x | 9.2 GB | identical (max rel. error 0.0) |
+| **fast, batch 8** | **0.131** | **1.76x** | 9.4 GB | corr 0.9999995, max rel. 0.2% |
+| fast, batch 16 | 0.128 | 1.79x | 12.9 GB | same as batch 8 |
+| fast, batch 32 | 0.955 | 0.24x | 19.8 GB | spills into shared memory |
+
+Batch 8 is the default: nearly batch 16's speed with ~6 GB of headroom. Batch 32 shows
+what the shared-memory fallback costs. The remaining cost is the per-word recomputation
+of the context itself, which tribev2's sliding contexts require (sharing one pass across
+words would change the features, so it isn't done).
+
 ## Job params
 
 | param | default | |
@@ -51,3 +75,5 @@ are freed and the CUDA cache emptied between stages.
 | `fast_video` | true | the V-JEPA2 fast path (false = neuralset's own loop) |
 | `video_batch_size` | 1 | clips per forward pass |
 | `video_prefetch` | 8 | clips prepared ahead on the CPU thread |
+| `fast_text` | true | the Llama fast path (false = neuralset's own loop) |
+| `text_batch_size` | 8 | words per Llama forward pass |

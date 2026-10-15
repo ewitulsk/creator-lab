@@ -87,6 +87,9 @@ def collect_meta(xp, options, seeded: dict, runner_version: str, events_version:
             f"V-JEPA2 fast path: one sequential decode per video, CPU prefetch, batch {options.video_batch_size}"
             if options.fast_video
             else "V-JEPA2 via neuralset's per-clip moviepy path",
+            f"Llama word features sliced on the GPU, batch {options.text_batch_size}"
+            if options.fast_text
+            else "Llama via neuralset's loop (batch 4)",
             "words transcribed before chunking" if options.word_alignment == "fixed" else "tribev2 demo word order",
             "extractor models freed after each stage",
             "tqdm and WhisperX progress hooks",

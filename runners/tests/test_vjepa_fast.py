@@ -73,3 +73,14 @@ def test_run_options_accept_the_speed_switches():
     assert (o.half_dtype, o.video_batch_size, o.fast_video) == ("bfloat16", 2, False)
     with pytest.raises(ValueError):
         RunOptions.from_params({"half_dtype": "float8"})
+
+
+def test_word_token_span_matches_neuralset_slicing():
+    from runners.tribe.text_fast import word_token_span
+
+    for n_tokens, n_pads, n_prefix in [(10, 0, 7), (10, 3, 4), (10, 2, 8), (5, 0, 5), (6, 1, 9)]:
+        x = np.arange(n_tokens)
+        ref = x[:-n_pads] if n_pads else x  # neuralset: drop trailing pads
+        ref = ref[-max(1, n_tokens - n_pads - n_prefix) :]  # then the word's tokens
+        s, e = word_token_span(n_tokens, n_pads, n_prefix)
+        assert x[s:e].tolist() == ref.tolist()

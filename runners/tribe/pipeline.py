@@ -50,6 +50,10 @@ class RunOptions:
     fast_video: bool = True
     video_batch_size: int = 1  # GPU-bound at 1 on the 5070 Ti; 1 is also bit-identical to neuralset
     video_prefetch: int = 8
+    # Llama: slice each word's tokens on the GPU instead of copying every layer of every
+    # context token to the CPU; batch 8 measured fastest that stays well inside 16 GB
+    fast_text: bool = True
+    text_batch_size: int = 8
     # fixed: transcribe the whole audio, then chunk. original: tribev2's demo order
     # (chunk, then copy the full transcript into every chunk), kept for comparison only.
     word_alignment: str = "fixed"
@@ -67,6 +71,8 @@ class RunOptions:
             "fast_video",
             "video_batch_size",
             "video_prefetch",
+            "fast_text",
+            "text_batch_size",
             "word_alignment",
             "features_dir",
             "seed_cache",
@@ -77,8 +83,8 @@ class RunOptions:
             raise ValueError("word_alignment must be fixed or original")
         if opts.half_dtype not in ("float16", "bfloat16"):
             raise ValueError("half_dtype must be float16 or bfloat16")
-        if opts.video_batch_size < 1 or opts.video_prefetch < 1:
-            raise ValueError("video_batch_size and video_prefetch must be at least 1")
+        if opts.video_batch_size < 1 or opts.video_prefetch < 1 or opts.text_batch_size < 1:
+            raise ValueError("video_batch_size, video_prefetch and text_batch_size must be at least 1")
         return opts
 
 
@@ -156,6 +162,11 @@ class TribePipeline:
 
             vjepa_fast.configure(batch_size=self.options.video_batch_size, prefetch=self.options.video_prefetch)
             vjepa_fast.install()
+        if self.options.fast_text:
+            from . import text_fast
+
+            text_fast.configure(batch_size=self.options.text_batch_size)
+            text_fast.install()
         features = self.cache_dir / self.options.features_dir
         features.mkdir(parents=True, exist_ok=True)
         self.progress.update(message="loading the TRIBE checkpoint")
