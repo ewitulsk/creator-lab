@@ -8,6 +8,9 @@
    percentages are forwarded.
 4. GPU freeing: extractors keep their model in `_model` after `prepare`; drop it (and the
    CUDA cache) between stages so only one model is ever on the GPU.
+5. exca's in-flight check on Windows: it probes owner PIDs with os.kill(pid, 0), which on
+   Windows raises for a dead PID and *terminates* a live one. Replaced with a read-only
+   OpenProcess/GetExitCodeProcess query.
 """
 
 from __future__ import annotations
@@ -308,7 +311,46 @@ def free_extractor(extractor) -> None:
         torch.cuda.empty_cache()
 
 
+# ------------------------------------------------------------------ 5. exca PID check
+
+
+def windows_pid_alive(pid: int) -> bool:
+    """True if a process with this PID is running. Never signals or terminates it."""
+    import ctypes
+    from ctypes import wintypes
+
+    process_query_limited_information = 0x1000
+    still_active = 259
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    handle = kernel32.OpenProcess(process_query_limited_information, False, int(pid))
+    if not handle:
+        # ERROR_ACCESS_DENIED means it exists but belongs to someone else
+        return ctypes.get_last_error() == 5
+    try:
+        code = wintypes.DWORD()
+        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):
+            return True
+        return code.value == still_active
+    finally:
+        kernel32.CloseHandle(handle)
+
+
+def install_exca_pid_check() -> None:
+    if sys.platform != "win32":
+        return
+    try:
+        from exca.cachedict import inflight
+    except ImportError:
+        return
+    if getattr(inflight._is_pid_alive, "_creator_lab", False):
+        return
+    windows_pid_alive._creator_lab = True
+    inflight._is_pid_alive = windows_pid_alive
+
+
 def install_all() -> None:
+    install_exca_pid_check()
     install_fp16_loading()
     install_whisperx_progress()
     install_tqdm_hook()

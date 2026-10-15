@@ -84,3 +84,22 @@ def test_word_token_span_matches_neuralset_slicing():
         ref = ref[-max(1, n_tokens - n_pads - n_prefix) :]  # then the word's tokens
         s, e = word_token_span(n_tokens, n_pads, n_prefix)
         assert x[s:e].tolist() == ref.tolist()
+
+
+@pytest.mark.skipif(__import__("sys").platform != "win32", reason="Windows-only PID check")
+def test_windows_pid_alive_is_read_only():
+    import os
+    import subprocess
+    import sys
+
+    from runners.tribe.patches import windows_pid_alive
+
+    assert windows_pid_alive(os.getpid())
+    child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+    try:
+        assert windows_pid_alive(child.pid)
+        assert child.poll() is None  # still running: the check never kills it
+    finally:
+        child.kill()
+        child.wait()
+    assert not windows_pid_alive(child.pid)
