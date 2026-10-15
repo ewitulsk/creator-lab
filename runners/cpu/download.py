@@ -14,6 +14,7 @@ from pathlib import Path
 from ..common.media import encode_h264, probe, remux_faststart, sha256
 from ..common.runner import Reporter, RetryableError
 from .info import capture_from_info, save_info
+from .ytdl import base_opts
 
 log = logging.getLogger("runner.download")
 
@@ -60,18 +61,16 @@ def download_one(item: dict, max_height: int, reporter: Reporter) -> dict:
                     + (f" at {speed / 1e6:.1f} MB/s" if speed else ""),
                 )
 
-    opts = {
-        "format": format_selector(max_height),
-        "merge_output_format": "mp4",
-        "outtmpl": str(out_dir / "video.download.%(ext)s"),
-        "progress_hooks": [hook],
-        "quiet": True,
-        "no_warnings": True,
-        "noprogress": True,
-        "retries": 5,
-        "fragment_retries": 5,
-        "concurrent_fragment_downloads": 4,
-    }
+    opts = base_opts(
+        format=format_selector(max_height),
+        merge_output_format="mp4",
+        outtmpl=str(out_dir / "video.download.%(ext)s"),
+        progress_hooks=[hook],
+        noprogress=True,
+        retries=5,
+        fragment_retries=5,
+        concurrent_fragment_downloads=4,
+    )
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.sanitize_info(ydl.extract_info(item["url"], download=True))

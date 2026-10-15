@@ -14,6 +14,7 @@ from pathlib import Path
 
 from ..common.runner import Reporter, RetryableError
 from .info import capture_from_info, save_info
+from .ytdl import base_opts
 
 log = logging.getLogger("runner.heatmap")
 
@@ -21,7 +22,7 @@ log = logging.getLogger("runner.heatmap")
 def fetch_info(url: str) -> dict:
     import yt_dlp
 
-    with yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True, "skip_download": True}) as ydl:
+    with yt_dlp.YoutubeDL(base_opts(skip_download=True)) as ydl:
         try:
             return ydl.sanitize_info(ydl.extract_info(url, download=False))
         except yt_dlp.utils.DownloadError as err:

@@ -12,6 +12,7 @@ import re
 from pathlib import Path
 
 from ..common.runner import Reporter, RetryableError
+from .ytdl import base_opts
 
 log = logging.getLogger("runner.captions")
 
@@ -88,7 +89,7 @@ def fetch_captions(item: dict, reporter: Reporter) -> dict:
 
     out_dir = Path(item["output_dir"])
     out_dir.mkdir(parents=True, exist_ok=True)
-    base = {"quiet": True, "no_warnings": True, "skip_download": True}
+    base = base_opts(skip_download=True)
     try:
         with yt_dlp.YoutubeDL(base) as ydl:
             info = ydl.extract_info(item["url"], download=False)
