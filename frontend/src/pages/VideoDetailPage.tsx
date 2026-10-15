@@ -1,10 +1,11 @@
 import * as Plot from "@observablehq/plot";
 import { Link, useParams } from "@tanstack/react-router";
-import { Download, ExternalLink, RefreshCw } from "lucide-react";
+import { Download, ExternalLink, Play, RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useRefreshVideo, useVideo } from "@/api/channels";
 import type { Schemas } from "@/api/client";
 import { usePull } from "@/api/discover";
+import { useIssueJobs } from "@/api/jobs";
 import { FormatBadge, OutlierBadge, StatusBadge } from "@/components/badges";
 import { PlotFigure } from "@/components/PlotFigure";
 import { Button } from "@/components/ui/button";
@@ -58,7 +59,8 @@ function StatsOverTime({ snapshots, publishedAt }: { snapshots: Detail["snapshot
   );
 }
 
-function AnalyzerPanel({ a }: { a: Detail["analyzers"][number] }) {
+function AnalyzerPanel({ a, videoId }: { a: Detail["analyzers"][number]; videoId: number }) {
+  const issue = useIssueJobs();
   return (
     <div className="space-y-2 text-sm">
       <div className="flex flex-wrap items-center gap-2">
@@ -67,7 +69,21 @@ function AnalyzerPanel({ a }: { a: Detail["analyzers"][number] }) {
           {a.analyzer}@{a.version} · {a.runner_type}
           {a.computed_at ? ` · computed ${fmtDateTime(a.computed_at)}` : ""}
         </span>
-        {a.job_id ? <span className="text-muted-foreground">job #{a.job_id}</span> : null}
+        {a.job_id ? (
+          <Link to="/jobs/$jobId" params={{ jobId: String(a.job_id) }} className="text-primary hover:underline">
+            job #{a.job_id}
+          </Link>
+        ) : null}
+        {a.runner_type !== "builtin" && a.status !== "queued" && a.status !== "running" ? (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={issue.isPending}
+            onClick={() => issue.mutate({ requests: [{ analyzer: a.analyzer, video_ids: [videoId] }], force: a.status === "done" })}
+          >
+            <Play /> {a.status === "done" ? "Run again" : "Run"}
+          </Button>
+        ) : null}
       </div>
       {a.error ? <Alert tone="destructive">{a.error}</Alert> : null}
       {Object.keys(a.summary).length ? (
@@ -156,7 +172,7 @@ export function VideoDetailPage() {
                 onChange={setTab}
                 tabs={analyzers.map((a) => ({ value: a.analyzer, label: a.title }))}
               />
-              {active ? <AnalyzerPanel a={active} /> : null}
+              {active ? <AnalyzerPanel a={active} videoId={v.id} /> : null}
             </CardContent>
           </Card>
           <Card>

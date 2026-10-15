@@ -132,6 +132,39 @@ Evan picks what gets pulled. Nothing is downloaded just because a channel was op
   - Listing a channel's uploads never downloads anything.
 - The seed `channels.txt` import is dropped. Channels are added through Discover.
 
+## YouTube owner sync ("Sync data from YT")
+
+Evan's own channel (https://www.youtube.com/@evanwitulski) gets the data only the owner can see.
+
+- **Sign in with YouTube**: the Google OAuth 2.0 web flow with the scopes
+  `yt-analytics.readonly` and `youtube.readonly`, redirecting to a backend callback.
+  The refresh token is stored encrypted in the DB (Fernet, key derived from
+  `SECRET_KEY`) and never appears in logs or the repo. Settings:
+  `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI`.
+  Setup steps: [docs/youtube-oauth.md](youtube-oauth.md).
+- **Owned channel**: found with `channels.list mine=true` and marked owned (with a
+  credential row). Every upload is pulled, including private and unlisted ones:
+  - Data API: full snippet, contentDetails, status, statistics, topicDetails
+  - Analytics, lifetime per video: views, estimatedMinutesWatched, averageViewDuration,
+    averageViewPercentage, likes, dislikes, comments, shares, subscribersGained/Lost,
+    card metrics; impressions and CTR only if the API accepts them (it degrades
+    silently and does not show them as available otherwise)
+  - daily time series per video (dimension `day`)
+  - audience retention: `elapsedVideoTimeRatio` with `audienceWatchRatio` and
+    `relativeRetentionPerformance`, split by `audienceType` where available, stored
+    with the video duration so ratios convert to seconds (`retention_curves` table,
+    versioned per sync)
+  - breakdowns: traffic source, device, country, age group and gender, subscribed status
+  - every report is kept as versioned raw JSON plus parsed tables, and every call is logged
+- The owned channel's videos are downloaded through the normal download jobs (1080p
+  cap). Private videos may fail without cookies: they are marked, not crashed on.
+- There is no scheduled refresh. Signing in again offers **Re-pull everything** (a new
+  retention snapshot version; old ones are kept) or **Pull new only**, and shows the
+  last sync time and counts.
+- UI: an owned badge, and a **Real engagement** tab on the video page with the retention
+  curve. When a TRIBE result exists, the TRIBE engagement curve is overlaid on the same
+  time axis.
+
 ## Runner API (Bearer `RUNNER_TOKEN`)
 
 | call | purpose |
@@ -165,13 +198,23 @@ Each stage runs across the **whole batch**, with one model on the GPU at a time:
 The runner resumes from the feature cache. neuralset keeps `self._model` forever (about
 15 GB peak VRAM), so the runner frees it at runtime. tqdm is hooked for progress.
 
-Outputs per video:
+Outputs per video: **save everything, especially timestamps** (nothing TRIBE returns is dropped):
 
-- `preds.npy` as float16 (timesteps x 20,484 fsaverage5 vertices)
-- `timing.json` with the start second of each timestep. Resolve why video gave about
-  2.8 timesteps per second versus about 1 for text.
+- `preds.npy` as float16, one row per second of the input (timesteps x 20,484 fsaverage5)
+- `raw/preds_rows.npy` and `rows.parquet`: every prediction row exactly as TRIBE returned
+  it, with segment start, duration, window/batch index, kept or dropped (dropped rows
+  are NaN in the full-length array) and which modalities had events
+- `timing.json`: the start second of each row in `preds.npy` and how rows were aligned
+- `events.parquet` (the events TRIBE built), `words.parquet` and `transcript.txt` (WhisperX)
+- `features/`: per-modality pre-brain features over time (Llama, w2v-BERT, V-JEPA2
+  layer groups, fp16) with their timestamps and frequency, plus pooled versions
 - `regions.parquet`: network and region means over time
-- pooled pre-brain embeddings
+- `meta.json`: TR and frequencies, window settings, the full data and model config,
+  model and checkpoint ids and hashes, library versions, GPU, dtype and patch settings,
+  per-stage wall times
+- `manifest.json`: every file written
+
+Timesteps versus seconds is resolved: see [docs/tribe-timing.md](tribe-timing.md).
 
 Benchmark on `BrainThing\samples\roomba\roomba_h264.mp4`. The old run took about 2h10m
 on the 5070 Ti (V-JEPA2 89 min, Llama 33 min). There is also a TRIBE-on-title job type
@@ -244,6 +287,30 @@ export as CSV or Parquet.
   cheap-features model and a pre-brain-embeddings model. Side analyses: title TRIBE
   and thumbnail ResMem on the same pairs.
 
+### Engagement analyzer and the retention study
+
+- **`tribe_engagement@1`** (depends on TRIBE video preds) maps vertices to Yeo 7
+  networks (fsaverage5, left then right) and to HCP-MMP1 areas. For each region it
+  z-scores every vertex over time, averages them, and regresses out the whole-cortex
+  average signal. Curves per timestep:
+  - stimulus drive: whole-cortex magnitude, an ISC analog
+  - draft engagement index: mean(dorsal attention, salience/ventral attention) minus
+    default mode
+  - anterior insula, and NAcc if the tribev2 subcortical model is available
+- **Study "Does TRIBE predict real audience retention?"** on owned-channel videos:
+  - the target is drop-off per 1% bin (change in `audienceWatchRatio`) plus
+    `relativeRetentionPerformance`, excluding the first and last 5%
+  - the control is the generic retention decay shape (a smooth decay fit), so TRIBE has
+    to explain the residual dips and bumps, not the overall decline
+  - tests: per-video Spearman correlation of the TRIBE curve (and its derivative) with
+    the residuals; across videos, a sign or permutation test with circular-shift nulls
+    within each video; and a leave-one-video-out ridge over network and parcel curves
+  - controls: the same tests on pre-brain features and on cheap features (shot cuts,
+    loudness, speech rate). Brain curves must beat them.
+  - the anterior insula is expected to be negative (Tong et al. 2020)
+  - curve definitions and lags are pre-registered but left **unlocked** for Evan to approve
+  - the Discover "videos needed for study X" filter works for this study too
+
 ## Auth and config
 
 - Admin credentials are never hardcoded (the repo is public). `ADMIN_PASSWORD` is read
@@ -261,8 +328,11 @@ export as CSV or Parquet.
    thumbnails, pages, outlier score. Done when his channels are browsable with stats history.
 3. **Jobs and runners**: API, client, CPU runner downloads, staged fp16 TRIBE runner
    benchmarked, live Jobs page, coverage grid. Done when he can issue a TRIBE job and watch it.
+   **3b. YouTube owner sync**: OAuth, owned channel, Analytics reports, retention
+   curves, the Real engagement tab.
 4. **Brain player**. Done when roomba plays with its brain response.
-5. **Studies** framework plus the first study and its analyzers.
+5. **Studies** framework plus the first study and its analyzers, `tribe_engagement`,
+   and the retention study.
 6. **Compare creators**, Shorts views, exports, SQLite backups, Dockerfile and compose.
 
 ## Risks and open items

@@ -266,6 +266,8 @@ class Job(db.Model):
     status: Mapped[str] = mapped_column(String(16), default="queued")
     priority: Mapped[int] = mapped_column(default=0)
     params: Mapped[dict] = mapped_column(JSON, default=dict)
+    # Jobs that must finish first (e.g. the download a TRIBE job needs).
+    depends_on: Mapped[list] = mapped_column(JSON, default=list)
     created_by: Mapped[str] = mapped_column(String(80), default="system")
     claimed_by: Mapped[int | None] = mapped_column(ForeignKey("runners.id", ondelete="SET NULL"))
     progress: Mapped[dict] = mapped_column(JSON, default=dict)

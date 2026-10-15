@@ -27,7 +27,26 @@ cd ..\backend
 uv run creator-lab serve        # http://127.0.0.1:5050
 ```
 
-`backend/.env` is gitignored. Never commit it: the repo is public.
+`backend/.env` is gitignored. Never commit it: the repo is public. Once per clone, enable
+the guard hook that blocks committing `.env`, database, array or media files:
+
+```powershell
+git config core.hooksPath .githooks
+```
+
+## Runners
+
+Jobs (downloads, captions, TRIBE) run in separate runner processes that pull work from
+the platform. Start them from the repo root while the server is running:
+
+```powershell
+uv run --project runners python -m runners.cpu                       # downloads (<=1080p), captions
+D:\VideoAnalysis\BrainThing\.venv\Scripts\python.exe -m runners.tribe  # TRIBE v2 on the GPU
+```
+
+The Jobs page shows every job, which runner holds it and its live stage, video and
+percent. See [runners/README.md](runners/README.md), and
+[docs/tribe-timing.md](docs/tribe-timing.md) for how TRIBE rows map to seconds.
 
 ## Development
 

@@ -12,6 +12,8 @@ data/
 *.db
 *.npy
 *.npz
+*.parquet
+*.pkl
 *.pt
 *.pth
 *.safetensors

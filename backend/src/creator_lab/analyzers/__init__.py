@@ -56,7 +56,7 @@ def ensure_analyzers() -> None:
 
 def load_builtin_specs() -> None:
     """Import the modules that register specs (kept here so import order is explicit)."""
-    from . import builtin  # noqa: F401
+    from . import builtin, runner_specs  # noqa: F401
 
 
 def current(name: str) -> Analyzer:

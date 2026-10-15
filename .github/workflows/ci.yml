@@ -10,6 +10,32 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: No secrets, databases, arrays or media are tracked
+        run: python3 scripts/check_tracked_files.py
+
+  runners:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: runners
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync --locked
+      - name: Lint
+        run: uv run ruff check .
+      - name: Format
+        run: uv run ruff format --check .
+      - name: Test
+        run: uv run pytest
+
   backend:
     runs-on: ubuntu-latest
     defaults:

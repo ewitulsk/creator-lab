@@ -378,6 +378,301 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/runners/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Register (or re-register) a runner. Jobs it held before a restart are requeued. */
+        post: operations["registerRunner"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runners/{runner_id}/heartbeat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runner_id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Liveness. A job whose runner is silent for 10 minutes (a setting) is requeued. */
+        post: operations["runnerHeartbeat"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Atomically claim the next ready job of an advertised type. */
+        post: operations["claimJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{job_id}/progress": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The calling runner's id; mismatches get 409 */
+                "X-Runner-Id"?: components["parameters"]["RunnerIdHeader"];
+            };
+            path: {
+                job_id: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Exact live state, every few seconds. Optional `log` text is appended to the job log. */
+        post: operations["jobProgress"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{job_id}/items/{video_id}/result": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The calling runner's id; mismatches get 409 */
+                "X-Runner-Id"?: components["parameters"]["RunnerIdHeader"];
+            };
+            path: {
+                job_id: components["parameters"]["JobId"];
+                video_id: components["parameters"]["VideoId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["jobItemResult"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{job_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The calling runner's id; mismatches get 409 */
+                "X-Runner-Id"?: components["parameters"]["RunnerIdHeader"];
+            };
+            path: {
+                job_id: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["completeJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{job_id}/fail": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The calling runner's id; mismatches get 409 */
+                "X-Runner-Id"?: components["parameters"]["RunnerIdHeader"];
+            };
+            path: {
+                job_id: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["failJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{job_id}/log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        get: operations["jobLog"];
+        put?: never;
+        post: operations["appendJobLog"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        /** @description Job detail, including the runner payload (params, per-video local input paths and output dir). */
+        get: operations["getJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{job_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["cancelJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{job_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A new job for this job's videos that did not finish. */
+        post: operations["retryJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listJobs"];
+        put?: never;
+        /** @description Issue jobs. Videos that already have the result (unless force) or an active job are skipped; a download is chained first when an analyzer needs the video file. */
+        post: operations["createJobs"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Server-sent events (event: jobs) with active and recently finished jobs whenever they change. */
+        get: operations["jobsStream"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listRunners"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/analyzers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listAnalyzers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["coverage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -637,6 +932,164 @@ export interface components {
             jobs: number[];
             study_added?: number;
         };
+        /** @description The runner's exact live state, e.g. stage "Whisper" on video 5 of 10 at 1%. */
+        JobProgress: {
+            stage?: string;
+            stage_index?: number;
+            stage_count?: number;
+            video_index?: number;
+            video_count?: number;
+            video_id?: number;
+            stage_percent?: number;
+            overall_percent?: number;
+            message?: string;
+            eta_seconds?: number;
+            updated_at?: string;
+        };
+        JobSummary: {
+            id: number;
+            type: string;
+            analyzer: string;
+            version: string;
+            title: string;
+            runner_type: string;
+            /** @enum {string} */
+            status: "queued" | "claimed" | "running" | "done" | "failed" | "cancelled";
+            priority: number;
+            created_by: string;
+            runner: {
+                id: number;
+                name: string;
+            } | null;
+            progress: components["schemas"]["JobProgress"];
+            progress_text: string;
+            items_total: number;
+            items_by_status: {
+                [key: string]: number;
+            };
+            attempts: number;
+            depends_on: number[];
+            error: string | null;
+            created_at: string | null;
+            claimed_at: string | null;
+            started_at: string | null;
+            finished_at: string | null;
+            elapsed_seconds: number | null;
+        };
+        StageTiming: {
+            stage: string;
+            started_at: string;
+            finished_at: string | null;
+            seconds: number | null;
+        };
+        JobItemInfo: {
+            video_id: number;
+            title: string;
+            external_id: string;
+            status: string;
+            stage: string | null;
+            error: string | null;
+            started_at: string | null;
+            finished_at: string | null;
+        };
+        JobPayloadItem: {
+            video_id: number;
+            external_id: string;
+            channel_external_id: string;
+            title: string;
+            url: string;
+            duration_s: number | null;
+            format: string;
+            language: string | null;
+            /** @description Local file paths in v1 (signed URLs for remote runners later), null when missing. */
+            inputs: {
+                [key: string]: string | null;
+            };
+            output_dir: string;
+            status: string;
+        };
+        JobPayload: {
+            id: number;
+            type: string;
+            analyzer: string;
+            version: string;
+            status: string;
+            params: {
+                [key: string]: unknown;
+            };
+            attempt: number;
+            max_video_height: number;
+            data_root: string;
+            runner_cache_dir: string;
+            download_pause_seconds: number;
+            items: components["schemas"]["JobPayloadItem"][];
+        };
+        JobDetail: components["schemas"]["JobSummary"] & {
+            params: {
+                [key: string]: unknown;
+            };
+            stage_timings: components["schemas"]["StageTiming"][];
+            log_tail: string | null;
+            items: components["schemas"]["JobItemInfo"][];
+            payload: components["schemas"]["JobPayload"];
+        };
+        RunnerInfo: {
+            id: number;
+            name: string;
+            /** @enum {string} */
+            type: "cpu" | "gpu";
+            gpu: string | null;
+            host: string | null;
+            version: string | null;
+            capabilities: string[];
+            info: {
+                [key: string]: unknown;
+            };
+            online: boolean;
+            last_heartbeat: string | null;
+            current_job_id: number | null;
+        };
+        AnalyzerInfo: {
+            name: string;
+            version: string;
+            ref: string;
+            title: string;
+            description: string;
+            /** @enum {string} */
+            runner_type: "builtin" | "cpu" | "gpu";
+            inputs: string[];
+            output_format: string;
+            applies_to: string[];
+            is_current: boolean;
+        };
+        CoverageCell: {
+            /** @enum {string} */
+            status: "done" | "queued" | "running" | "failed" | "missing" | "n/a";
+            job_id: number | null;
+        };
+        Coverage: {
+            analyzers: {
+                name: string;
+                version: string;
+                title: string;
+                runner_type: string;
+            }[];
+            videos: {
+                video_id: number;
+                title: string;
+                channel_id: number;
+                format: string;
+                published_at: string | null;
+                selection: string;
+                cells: {
+                    [key: string]: components["schemas"]["CoverageCell"];
+                };
+            }[];
+            total: number;
+        };
+        JobResponse: {
+            job: components["schemas"]["JobSummary"];
+        };
     };
     responses: {
         /** @description Error */
@@ -650,6 +1103,9 @@ export interface components {
         };
     };
     parameters: {
+        JobId: number;
+        /** @description The calling runner's id; mismatches get 409 */
+        RunnerIdHeader: string;
         ChannelId: number;
         VideoId: number;
         /** @description Title search */
@@ -1350,6 +1806,554 @@ export interface operations {
                 };
             };
             404: components["responses"]["Error"];
+        };
+    };
+    registerRunner: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /** @enum {string} */
+                    type: "cpu" | "gpu";
+                    /** @description Job types this runner can run */
+                    capabilities: string[];
+                    gpu?: string | null;
+                    host?: string | null;
+                    version?: string | null;
+                    info?: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Registered */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        runner: components["schemas"]["RunnerInfo"];
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+        };
+    };
+    runnerHeartbeat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runner_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    info?: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Alive. Lists this runner's jobs that were cancelled, so it can stop them. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ok: boolean;
+                        cancelled_jobs: number[];
+                    };
+                };
+            };
+        };
+    };
+    claimJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    runner_id: number;
+                    types?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description The claimed job, or null when there is nothing to do */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        job: components["schemas"]["JobPayload"] | null;
+                    };
+                };
+            };
+        };
+    };
+    jobProgress: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The calling runner's id; mismatches get 409 */
+                "X-Runner-Id"?: components["parameters"]["RunnerIdHeader"];
+            };
+            path: {
+                job_id: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobProgress"] & {
+                    log?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Stored. cancel=true means stop working on this job. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cancel: boolean;
+                    };
+                };
+            };
+            409: components["responses"]["Error"];
+        };
+    };
+    jobItemResult: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The calling runner's id; mismatches get 409 */
+                "X-Runner-Id"?: components["parameters"]["RunnerIdHeader"];
+            };
+            path: {
+                job_id: components["parameters"]["JobId"];
+                video_id: components["parameters"]["VideoId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    status?: "done" | "failed";
+                    error?: string | null;
+                    summary?: {
+                        [key: string]: unknown;
+                    };
+                    output_path?: string | null;
+                    assets?: {
+                        /** @enum {string} */
+                        kind: "video" | "audio" | "thumbnail" | "captions" | "captions_text" | "info";
+                        /** @description Must be inside the data folder */
+                        path: string;
+                        variant?: string;
+                        bytes?: number;
+                        sha256?: string;
+                        width?: number;
+                        height?: number;
+                        codec?: string;
+                        meta?: {
+                            [key: string]: unknown;
+                        };
+                    }[];
+                    video_updates?: {
+                        /** @enum {string} */
+                        format?: "live" | "premiere";
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Stored */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
+                };
+            };
+            400: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    completeJob: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The calling runner's id; mismatches get 409 */
+                "X-Runner-Id"?: components["parameters"]["RunnerIdHeader"];
+            };
+            path: {
+                job_id: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Finished */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobResponse"];
+                };
+            };
+        };
+    };
+    failJob: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The calling runner's id; mismatches get 409 */
+                "X-Runner-Id"?: components["parameters"]["RunnerIdHeader"];
+            };
+            path: {
+                job_id: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    error: string;
+                    log_tail?: string;
+                    /** @description Requeue if attempts remain (transient errors) */
+                    retry?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Failed (or requeued) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobResponse"];
+                };
+            };
+        };
+    };
+    jobLog: {
+        parameters: {
+            query?: {
+                tail?: number;
+            };
+            header?: never;
+            path: {
+                job_id: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The last lines of the job log */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        log: string;
+                    };
+                };
+            };
+        };
+    };
+    appendJobLog: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The calling runner's id; mismatches get 409 */
+                "X-Runner-Id"?: components["parameters"]["RunnerIdHeader"];
+            };
+            path: {
+                job_id: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    text: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Appended */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
+                };
+            };
+        };
+    };
+    getJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Job */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        job: components["schemas"]["JobDetail"];
+                    };
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    cancelJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cancelled (and jobs waiting on it) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    retryJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The new job */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    listJobs: {
+        parameters: {
+            query?: {
+                /** @description Comma-separated statuses */
+                status?: string;
+                /** @description Comma-separated job types */
+                type?: string;
+                video_id?: number;
+                limit?: number;
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Jobs, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        jobs: components["schemas"]["JobSummary"][];
+                        total: number;
+                    };
+                };
+            };
+        };
+    };
+    createJobs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    analyzer?: string;
+                    video_ids?: number[];
+                    requests?: {
+                        analyzer: string;
+                        video_ids: number[];
+                        params?: {
+                            [key: string]: unknown;
+                        };
+                    }[];
+                    params?: {
+                        [key: string]: unknown;
+                    };
+                    priority?: number;
+                    force?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Issued jobs (including chained downloads) and analyzers with nothing to do */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        jobs: components["schemas"]["JobSummary"][];
+                        skipped: string[];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    jobsStream: {
+        parameters: {
+            query?: {
+                once?: "1";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description text/event-stream */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+        };
+    };
+    listRunners: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Registered runners */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        runners: components["schemas"]["RunnerInfo"][];
+                    };
+                };
+            };
+        };
+    };
+    listAnalyzers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Analyzer registry (every version) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        analyzers: components["schemas"]["AnalyzerInfo"][];
+                    };
+                };
+            };
+        };
+    };
+    coverage: {
+        parameters: {
+            query?: {
+                channel_id?: string;
+                selection?: "tracked" | "discovered" | "all";
+                format?: string;
+                video_ids?: string;
+                limit?: number;
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Videos x analyzers status grid */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Coverage"];
+                };
+            };
         };
     };
 }

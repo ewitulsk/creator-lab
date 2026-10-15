@@ -2,9 +2,12 @@ import { createRootRoute, createRoute, createRouter } from "@tanstack/react-rout
 import { AuthGate } from "@/components/AuthGate";
 import { ChannelDetailPage } from "@/pages/ChannelDetailPage";
 import { ChannelsPage } from "@/pages/ChannelsPage";
+import { CoveragePage } from "@/pages/CoveragePage";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { DiscoverChannelPage } from "@/pages/DiscoverChannelPage";
 import { DiscoverPage } from "@/pages/DiscoverPage";
+import { JobDetailPage } from "@/pages/JobDetailPage";
+import { JobsPage } from "@/pages/JobsPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { VideoDetailPage } from "@/pages/VideoDetailPage";
@@ -19,6 +22,9 @@ export const routeTree = rootRoute.addChildren([
   createRoute({ getParentRoute, path: "/channels", component: ChannelsPage }),
   createRoute({ getParentRoute, path: "/channels/$channelId", component: ChannelDetailPage }),
   createRoute({ getParentRoute, path: "/videos/$videoId", component: VideoDetailPage }),
+  createRoute({ getParentRoute, path: "/coverage", component: CoveragePage }),
+  createRoute({ getParentRoute, path: "/jobs", component: JobsPage }),
+  createRoute({ getParentRoute, path: "/jobs/$jobId", component: JobDetailPage }),
   createRoute({ getParentRoute, path: "/settings", component: SettingsPage }),
 ]);
 export const router = createRouter({ routeTree, defaultPreload: "intent" });

@@ -48,3 +48,12 @@ def thumbnails(_app: Flask) -> None:
     n = ingest.fetch_missing_thumbnails(limit=300)
     if n:
         log.info("fetched %d thumbnails", n)
+
+
+@task("requeue_stale_jobs", minutes=1)
+def requeue_stale(_app: Flask) -> None:
+    from .jobs import requeue_stale_jobs
+
+    n = requeue_stale_jobs()
+    if n:
+        log.warning("requeued %d jobs whose runner went silent", n)

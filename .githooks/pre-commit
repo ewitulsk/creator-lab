@@ -1,0 +1,4 @@
+#!/bin/sh
+# Blocks commits that would add .env files, databases, arrays, weights or media.
+# Enable once per clone:  git config core.hooksPath .githooks
+exec python scripts/check_tracked_files.py --staged

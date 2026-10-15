@@ -344,7 +344,188 @@ components:
         already_tracked: { type: integer }
         jobs: { type: array, items: { type: integer } }
         study_added: { type: integer }
+    JobProgress:
+      type: object
+      description: The runner's exact live state, e.g. stage "Whisper" on video 5 of 10 at 1%.
+      properties:
+        stage: { type: string }
+        stage_index: { type: integer }
+        stage_count: { type: integer }
+        video_index: { type: integer }
+        video_count: { type: integer }
+        video_id: { type: integer }
+        stage_percent: { type: number }
+        overall_percent: { type: number }
+        message: { type: string }
+        eta_seconds: { type: number }
+        updated_at: { type: string }
+    JobSummary:
+      type: object
+      required: [id, type, analyzer, version, title, runner_type, status, priority, created_by, runner, progress, progress_text, items_total, items_by_status, attempts, depends_on, error, created_at, claimed_at, started_at, finished_at, elapsed_seconds]
+      properties:
+        id: { type: integer }
+        type: { type: string }
+        analyzer: { type: string }
+        version: { type: string }
+        title: { type: string }
+        runner_type: { type: string }
+        status: { type: string, enum: [queued, claimed, running, done, failed, cancelled] }
+        priority: { type: integer }
+        created_by: { type: string }
+        runner:
+          type: [object, "null"]
+          required: [id, name]
+          properties:
+            id: { type: integer }
+            name: { type: string }
+        progress: { $ref: "#/components/schemas/JobProgress" }
+        progress_text: { type: string }
+        items_total: { type: integer }
+        items_by_status: { type: object, additionalProperties: { type: integer } }
+        attempts: { type: integer }
+        depends_on: { type: array, items: { type: integer } }
+        error: { type: [string, "null"] }
+        created_at: { type: [string, "null"] }
+        claimed_at: { type: [string, "null"] }
+        started_at: { type: [string, "null"] }
+        finished_at: { type: [string, "null"] }
+        elapsed_seconds: { type: [number, "null"] }
+    StageTiming:
+      type: object
+      required: [stage, started_at, finished_at, seconds]
+      properties:
+        stage: { type: string }
+        started_at: { type: string }
+        finished_at: { type: [string, "null"] }
+        seconds: { type: [number, "null"] }
+    JobItemInfo:
+      type: object
+      required: [video_id, title, external_id, status, stage, error, started_at, finished_at]
+      properties:
+        video_id: { type: integer }
+        title: { type: string }
+        external_id: { type: string }
+        status: { type: string }
+        stage: { type: [string, "null"] }
+        error: { type: [string, "null"] }
+        started_at: { type: [string, "null"] }
+        finished_at: { type: [string, "null"] }
+    JobPayloadItem:
+      type: object
+      required: [video_id, external_id, channel_external_id, title, url, duration_s, format, language, inputs, output_dir, status]
+      properties:
+        video_id: { type: integer }
+        external_id: { type: string }
+        channel_external_id: { type: string }
+        title: { type: string }
+        url: { type: string }
+        duration_s: { type: [integer, "null"] }
+        format: { type: string }
+        language: { type: [string, "null"] }
+        inputs:
+          type: object
+          description: Local file paths in v1 (signed URLs for remote runners later), null when missing.
+          additionalProperties: { type: [string, "null"] }
+        output_dir: { type: string }
+        status: { type: string }
+    JobPayload:
+      type: object
+      required: [id, type, analyzer, version, status, params, attempt, max_video_height, data_root, runner_cache_dir, download_pause_seconds, items]
+      properties:
+        id: { type: integer }
+        type: { type: string }
+        analyzer: { type: string }
+        version: { type: string }
+        status: { type: string }
+        params: { type: object, additionalProperties: true }
+        attempt: { type: integer }
+        max_video_height: { type: integer }
+        data_root: { type: string }
+        runner_cache_dir: { type: string }
+        download_pause_seconds: { type: integer }
+        items: { type: array, items: { $ref: "#/components/schemas/JobPayloadItem" } }
+    JobDetail:
+      allOf:
+        - $ref: "#/components/schemas/JobSummary"
+        - type: object
+          required: [params, stage_timings, log_tail, items, payload]
+          properties:
+            params: { type: object, additionalProperties: true }
+            stage_timings: { type: array, items: { $ref: "#/components/schemas/StageTiming" } }
+            log_tail: { type: [string, "null"] }
+            items: { type: array, items: { $ref: "#/components/schemas/JobItemInfo" } }
+            payload: { $ref: "#/components/schemas/JobPayload" }
+    RunnerInfo:
+      type: object
+      required: [id, name, type, gpu, host, version, capabilities, info, online, last_heartbeat, current_job_id]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        type: { type: string, enum: [cpu, gpu] }
+        gpu: { type: [string, "null"] }
+        host: { type: [string, "null"] }
+        version: { type: [string, "null"] }
+        capabilities: { type: array, items: { type: string } }
+        info: { type: object, additionalProperties: true }
+        online: { type: boolean }
+        last_heartbeat: { type: [string, "null"] }
+        current_job_id: { type: [integer, "null"] }
+    AnalyzerInfo:
+      type: object
+      required: [name, version, ref, title, description, runner_type, inputs, output_format, applies_to, is_current]
+      properties:
+        name: { type: string }
+        version: { type: string }
+        ref: { type: string }
+        title: { type: string }
+        description: { type: string }
+        runner_type: { type: string, enum: [builtin, cpu, gpu] }
+        inputs: { type: array, items: { type: string } }
+        output_format: { type: string }
+        applies_to: { type: array, items: { type: string } }
+        is_current: { type: boolean }
+    CoverageCell:
+      type: object
+      required: [status, job_id]
+      properties:
+        status: { type: string, enum: [done, queued, running, failed, missing, n/a] }
+        job_id: { type: [integer, "null"] }
+    Coverage:
+      type: object
+      required: [analyzers, videos, total]
+      properties:
+        analyzers:
+          type: array
+          items:
+            type: object
+            required: [name, version, title, runner_type]
+            properties:
+              name: { type: string }
+              version: { type: string }
+              title: { type: string }
+              runner_type: { type: string }
+        videos:
+          type: array
+          items:
+            type: object
+            required: [video_id, title, channel_id, format, published_at, selection, cells]
+            properties:
+              video_id: { type: integer }
+              title: { type: string }
+              channel_id: { type: integer }
+              format: { type: string }
+              published_at: { type: [string, "null"] }
+              selection: { type: string }
+              cells: { type: object, additionalProperties: { $ref: "#/components/schemas/CoverageCell" } }
+        total: { type: integer }
+    JobResponse:
+      type: object
+      required: [job]
+      properties:
+        job: { $ref: "#/components/schemas/JobSummary" }
   parameters:
+    JobId: { name: job_id, in: path, required: true, schema: { type: integer } }
+    RunnerIdHeader: { name: X-Runner-Id, in: header, schema: { type: string }, description: The calling runner's id; mismatches get 409 }
     ChannelId: { name: channel_id, in: path, required: true, schema: { type: integer } }
     VideoId: { name: video_id, in: path, required: true, schema: { type: integer } }
     VideoListQuery:
@@ -759,3 +940,377 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/PullResult" }
         "404": { $ref: "#/components/responses/Error" }
+  /api/runners/register:
+    post:
+      operationId: registerRunner
+      security: [{ runner: [] }]
+      description: Register (or re-register) a runner. Jobs it held before a restart are requeued.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, type, capabilities]
+              properties:
+                name: { type: string }
+                type: { type: string, enum: [cpu, gpu] }
+                capabilities: { type: array, items: { type: string }, description: Job types this runner can run }
+                gpu: { type: [string, "null"] }
+                host: { type: [string, "null"] }
+                version: { type: [string, "null"] }
+                info: { type: object, additionalProperties: true }
+      responses:
+        "200":
+          description: Registered
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [runner]
+                properties:
+                  runner: { $ref: "#/components/schemas/RunnerInfo" }
+        "401": { $ref: "#/components/responses/Error" }
+  /api/runners/{runner_id}/heartbeat:
+    parameters: [{ name: runner_id, in: path, required: true, schema: { type: integer } }]
+    post:
+      operationId: runnerHeartbeat
+      security: [{ runner: [] }]
+      description: Liveness. A job whose runner is silent for 10 minutes (a setting) is requeued.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                info: { type: object, additionalProperties: true }
+      responses:
+        "200":
+          description: Alive. Lists this runner's jobs that were cancelled, so it can stop them.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, cancelled_jobs]
+                properties:
+                  ok: { type: boolean }
+                  cancelled_jobs: { type: array, items: { type: integer } }
+  /api/jobs/claim:
+    post:
+      operationId: claimJob
+      security: [{ runner: [] }]
+      description: Atomically claim the next ready job of an advertised type.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [runner_id]
+              properties:
+                runner_id: { type: integer }
+                types: { type: array, items: { type: string } }
+      responses:
+        "200":
+          description: The claimed job, or null when there is nothing to do
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job]
+                properties:
+                  job:
+                    oneOf:
+                      - $ref: "#/components/schemas/JobPayload"
+                      - type: "null"
+  /api/jobs/{job_id}/progress:
+    parameters: [{ $ref: "#/components/parameters/JobId" }, { $ref: "#/components/parameters/RunnerIdHeader" }]
+    post:
+      operationId: jobProgress
+      security: [{ runner: [] }]
+      description: Exact live state, every few seconds. Optional `log` text is appended to the job log.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/JobProgress"
+                - type: object
+                  properties:
+                    log: { type: string }
+      responses:
+        "200":
+          description: Stored. cancel=true means stop working on this job.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [cancel]
+                properties:
+                  cancel: { type: boolean }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/jobs/{job_id}/items/{video_id}/result:
+    parameters:
+      - { $ref: "#/components/parameters/JobId" }
+      - { $ref: "#/components/parameters/VideoId" }
+      - { $ref: "#/components/parameters/RunnerIdHeader" }
+    post:
+      operationId: jobItemResult
+      security: [{ runner: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string, enum: [done, failed] }
+                error: { type: [string, "null"] }
+                summary: { type: object, additionalProperties: true }
+                output_path: { type: [string, "null"] }
+                assets:
+                  type: array
+                  items:
+                    type: object
+                    required: [kind, path]
+                    properties:
+                      kind: { type: string, enum: [video, audio, thumbnail, captions, captions_text, info] }
+                      path: { type: string, description: Must be inside the data folder }
+                      variant: { type: string }
+                      bytes: { type: integer }
+                      sha256: { type: string }
+                      width: { type: integer }
+                      height: { type: integer }
+                      codec: { type: string }
+                      meta: { type: object, additionalProperties: true }
+                video_updates:
+                  type: object
+                  properties:
+                    format: { type: string, enum: [live, premiere] }
+      responses:
+        "200":
+          description: Stored
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ok" }
+        "400": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/jobs/{job_id}/complete:
+    parameters: [{ $ref: "#/components/parameters/JobId" }, { $ref: "#/components/parameters/RunnerIdHeader" }]
+    post:
+      operationId: completeJob
+      security: [{ runner: [] }]
+      responses:
+        "200":
+          description: Finished
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JobResponse" }
+  /api/jobs/{job_id}/fail:
+    parameters: [{ $ref: "#/components/parameters/JobId" }, { $ref: "#/components/parameters/RunnerIdHeader" }]
+    post:
+      operationId: failJob
+      security: [{ runner: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [error]
+              properties:
+                error: { type: string }
+                log_tail: { type: string }
+                retry: { type: boolean, description: Requeue if attempts remain (transient errors) }
+      responses:
+        "200":
+          description: Failed (or requeued)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JobResponse" }
+  /api/jobs/{job_id}/log:
+    parameters: [{ $ref: "#/components/parameters/JobId" }]
+    get:
+      operationId: jobLog
+      parameters:
+        - { name: tail, in: query, schema: { type: integer, maximum: 5000 } }
+      responses:
+        "200":
+          description: The last lines of the job log
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [log]
+                properties:
+                  log: { type: string }
+    post:
+      operationId: appendJobLog
+      security: [{ runner: [] }]
+      parameters: [{ $ref: "#/components/parameters/RunnerIdHeader" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string }
+      responses:
+        "200":
+          description: Appended
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ok" }
+  /api/jobs/{job_id}:
+    parameters: [{ $ref: "#/components/parameters/JobId" }]
+    get:
+      operationId: getJob
+      security: [{ session: [] }, { runner: [] }]
+      description: Job detail, including the runner payload (params, per-video local input paths and output dir).
+      responses:
+        "200":
+          description: Job
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job]
+                properties:
+                  job: { $ref: "#/components/schemas/JobDetail" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/jobs/{job_id}/cancel:
+    parameters: [{ $ref: "#/components/parameters/JobId" }]
+    post:
+      operationId: cancelJob
+      responses:
+        "200":
+          description: Cancelled (and jobs waiting on it)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JobResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/jobs/{job_id}/retry:
+    parameters: [{ $ref: "#/components/parameters/JobId" }]
+    post:
+      operationId: retryJob
+      description: A new job for this job's videos that did not finish.
+      responses:
+        "200":
+          description: The new job
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JobResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/jobs:
+    get:
+      operationId: listJobs
+      parameters:
+        - { name: status, in: query, schema: { type: string }, description: Comma-separated statuses }
+        - { name: type, in: query, schema: { type: string }, description: Comma-separated job types }
+        - { name: video_id, in: query, schema: { type: integer } }
+        - { name: limit, in: query, schema: { type: integer, maximum: 500 } }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: Jobs, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [jobs, total]
+                properties:
+                  jobs: { type: array, items: { $ref: "#/components/schemas/JobSummary" } }
+                  total: { type: integer }
+    post:
+      operationId: createJobs
+      description: Issue jobs. Videos that already have the result (unless force) or an active job are skipped; a download is chained first when an analyzer needs the video file.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                analyzer: { type: string }
+                video_ids: { type: array, items: { type: integer } }
+                requests:
+                  type: array
+                  items:
+                    type: object
+                    required: [analyzer, video_ids]
+                    properties:
+                      analyzer: { type: string }
+                      video_ids: { type: array, items: { type: integer } }
+                      params: { type: object, additionalProperties: true }
+                params: { type: object, additionalProperties: true }
+                priority: { type: integer }
+                force: { type: boolean }
+      responses:
+        "200":
+          description: Issued jobs (including chained downloads) and analyzers with nothing to do
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [jobs, skipped]
+                properties:
+                  jobs: { type: array, items: { $ref: "#/components/schemas/JobSummary" } }
+                  skipped: { type: array, items: { type: string } }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/jobs/stream:
+    get:
+      operationId: jobsStream
+      description: "Server-sent events (event: jobs) with active and recently finished jobs whenever they change."
+      parameters:
+        - { name: once, in: query, schema: { type: string, enum: ["1"] } }
+      responses:
+        "200":
+          description: text/event-stream
+          content:
+            text/event-stream:
+              schema: { type: string }
+  /api/runners:
+    get:
+      operationId: listRunners
+      responses:
+        "200":
+          description: Registered runners
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [runners]
+                properties:
+                  runners: { type: array, items: { $ref: "#/components/schemas/RunnerInfo" } }
+  /api/analyzers:
+    get:
+      operationId: listAnalyzers
+      responses:
+        "200":
+          description: Analyzer registry (every version)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [analyzers]
+                properties:
+                  analyzers: { type: array, items: { $ref: "#/components/schemas/AnalyzerInfo" } }
+  /api/coverage:
+    get:
+      operationId: coverage
+      parameters:
+        - { name: channel_id, in: query, schema: { type: string } }
+        - { name: selection, in: query, schema: { type: string, enum: [tracked, discovered, all] } }
+        - { name: format, in: query, schema: { type: string } }
+        - { name: video_ids, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, maximum: 2000 } }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: Videos x analyzers status grid
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Coverage" }
