@@ -1,0 +1,288 @@
+openapi: 3.1.0
+info:
+  title: creator-lab API
+  version: 0.1.0
+  description: |
+    REST API for the creator-lab platform. Browser calls use a session cookie
+    (log in via /api/auth/login) and must send `X-Requested-With` on writes.
+    Runners use `Authorization: Bearer <RUNNER_TOKEN>`.
+servers:
+  - url: /
+security:
+  - session: []
+components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: session
+    runner:
+      type: http
+      scheme: bearer
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+    Ok:
+      type: object
+      required: [ok]
+      properties:
+        ok: { type: boolean }
+    User:
+      type: object
+      required: [id, username]
+      properties:
+        id: { type: integer }
+        username: { type: string }
+    UserResponse:
+      type: object
+      required: [user]
+      properties:
+        user: { $ref: "#/components/schemas/User" }
+    DiskReport:
+      type: object
+      required: [drive_total, drive_free, drive_used, data_bytes, folders, measured_at]
+      properties:
+        drive_total: { type: integer }
+        drive_free: { type: integer }
+        drive_used: { type: integer }
+        data_bytes: { type: integer }
+        folders:
+          type: object
+          additionalProperties: { type: integer }
+        measured_at: { type: number }
+    Quota:
+      type: object
+      required: [day, units, calls, budget]
+      properties:
+        day: { type: string }
+        units: { type: integer }
+        calls: { type: integer }
+        budget: { type: integer }
+    RunnerSummary:
+      type: object
+      required: [id, name, type, online, last_heartbeat]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        type: { type: string }
+        online: { type: boolean }
+        last_heartbeat: { type: [string, "null"] }
+    DashboardError:
+      type: object
+      required: [kind, id, title, detail, at]
+      properties:
+        kind: { type: string, enum: [job, channel] }
+        id: { type: integer }
+        title: { type: string }
+        detail: { type: string }
+        at: { type: [string, "null"] }
+    Dashboard:
+      type: object
+      required: [counts, videos_by_format, jobs_by_status, runners, errors, disk, quota]
+      properties:
+        counts:
+          type: object
+          required: [channels, videos, video_snapshots, channel_snapshots, assets, results_done, studies]
+          properties:
+            channels: { type: integer }
+            videos: { type: integer }
+            video_snapshots: { type: integer }
+            channel_snapshots: { type: integer }
+            assets: { type: integer }
+            results_done: { type: integer }
+            studies: { type: integer }
+        videos_by_format:
+          type: object
+          additionalProperties: { type: integer }
+        jobs_by_status:
+          type: object
+          additionalProperties: { type: integer }
+        runners:
+          type: array
+          items: { $ref: "#/components/schemas/RunnerSummary" }
+        errors:
+          type: array
+          items: { $ref: "#/components/schemas/DashboardError" }
+        disk: { $ref: "#/components/schemas/DiskReport" }
+        quota: { $ref: "#/components/schemas/Quota" }
+    Schedules:
+      type: object
+      required:
+        - snapshot_young_days
+        - snapshot_young_interval_hours
+        - snapshot_old_interval_hours
+        - channel_snapshot_interval_hours
+        - new_upload_check_hours
+        - scheduler_tick_minutes
+        - daily_quota_budget
+        - runner_timeout_minutes
+        - download_pause_seconds
+        - backup_interval_hours
+        - backups_to_keep
+      properties:
+        snapshot_young_days: { type: integer }
+        snapshot_young_interval_hours: { type: integer }
+        snapshot_old_interval_hours: { type: integer }
+        channel_snapshot_interval_hours: { type: integer }
+        new_upload_check_hours: { type: integer }
+        scheduler_tick_minutes: { type: integer }
+        daily_quota_budget: { type: integer }
+        runner_timeout_minutes: { type: integer }
+        download_pause_seconds: { type: integer }
+        backup_interval_hours: { type: integer }
+        backups_to_keep: { type: integer }
+    Settings:
+      type: object
+      required: [keys, data_root, brainthing_dir, max_video_height, schedules, disk, quota]
+      properties:
+        keys:
+          type: object
+          description: Whether each secret is set. Values are never returned.
+          required: [youtube_api_key, runner_token, secret_key]
+          properties:
+            youtube_api_key: { type: boolean }
+            runner_token: { type: boolean }
+            secret_key: { type: boolean }
+        data_root: { type: string }
+        brainthing_dir: { type: [string, "null"] }
+        max_video_height: { type: integer }
+        schedules: { $ref: "#/components/schemas/Schedules" }
+        disk: { $ref: "#/components/schemas/DiskReport" }
+        quota: { $ref: "#/components/schemas/Quota" }
+  responses:
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+paths:
+  /api/health:
+    get:
+      operationId: health
+      security: []
+      responses:
+        "200":
+          description: Alive
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, time]
+                properties:
+                  ok: { type: boolean }
+                  time: { type: string }
+  /api/openapi.json:
+    get:
+      operationId: openapi
+      security: []
+      responses:
+        "200": { description: This document as JSON }
+  /api/auth/login:
+    post:
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string }
+                remember: { type: boolean }
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+        "401": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /api/auth/logout:
+    post:
+      operationId: logout
+      security: []
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ok" }
+  /api/auth/me:
+    get:
+      operationId: me
+      security: []
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+        "401": { $ref: "#/components/responses/Error" }
+  /api/auth/password:
+    post:
+      operationId: changePassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, new_password]
+              properties:
+                current_password: { type: string }
+                new_password: { type: string, minLength: 10 }
+      responses:
+        "200":
+          description: Changed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ok" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+  /api/dashboard:
+    get:
+      operationId: dashboard
+      parameters:
+        - { name: refresh, in: query, schema: { type: string, enum: ["1"] } }
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Dashboard" }
+  /api/settings:
+    get:
+      operationId: getSettings
+      responses:
+        "200":
+          description: Settings (secrets only as set / not set)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Settings" }
+  /api/settings/schedules:
+    put:
+      operationId: putSchedules
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: { type: integer }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [schedules]
+                properties:
+                  schedules: { $ref: "#/components/schemas/Schedules" }
+        "400": { $ref: "#/components/responses/Error" }
