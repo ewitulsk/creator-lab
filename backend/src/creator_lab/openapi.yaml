@@ -1575,3 +1575,82 @@ paths:
                         end_s: { type: [number, "null"] }
                         title: { type: string }
         "404": { $ref: "#/components/responses/Error" }
+  /api/brain/assets/{name}:
+    parameters: [{ name: name, in: path, required: true, schema: { type: string, enum: [mesh.json, mesh.bin, atlas.json] } }]
+    get:
+      operationId: brainAsset
+      description: fsaverage5 inflated mesh (mesh.json describes the arrays in mesh.bin) and the HCP-MMP1 atlas, exported by the TRIBE runner.
+      responses:
+        "200": { description: The file }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/videos/{video_id}/brain:
+    parameters: [{ $ref: "#/components/parameters/VideoId" }]
+    get:
+      operationId: videoBrain
+      parameters:
+        - { name: analyzer, in: query, schema: { type: string, enum: [tribe_video, tribe_title] } }
+      responses:
+        "200":
+          description: Brain player metadata for the video's TRIBE result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [video_id, analyzer, result_id, n_timesteps, n_vertices, tr_s, start_s, hrf_offset_s, scale, networks, peaks, frames_url, max_frames_per_request]
+                properties:
+                  video_id: { type: integer }
+                  analyzer: { type: string }
+                  result_id: { type: integer }
+                  n_timesteps: { type: integer }
+                  n_vertices: { type: integer }
+                  tr_s: { type: number }
+                  start_s: { type: array, items: { type: number } }
+                  hrf_offset_s: { type: [number, "null"] }
+                  scale:
+                    type: object
+                    description: "uint8 code 0 = no prediction; 1..255 = lo..hi linearly; 128 = 0"
+                    required: [version, lo, hi, zero_code, nan_code, levels]
+                    properties:
+                      version: { type: integer }
+                      lo: { type: number }
+                      hi: { type: number }
+                      zero_code: { type: integer }
+                      nan_code: { type: integer }
+                      levels: { type: integer }
+                  networks:
+                    oneOf:
+                      - type: "null"
+                      - type: object
+                        required: [t, networks]
+                        properties:
+                          t: { type: array, items: { type: number } }
+                          networks: { type: object, additionalProperties: { type: array, items: { type: [number, "null"] } } }
+                  peaks:
+                    type: object
+                    additionalProperties:
+                      type: array
+                      items:
+                        type: object
+                        required: [t, value]
+                        properties:
+                          t: { type: number }
+                          value: { type: number }
+                  frames_url: { type: string }
+                  max_frames_per_request: { type: integer }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/videos/{video_id}/brain/frames:
+    parameters: [{ $ref: "#/components/parameters/VideoId" }]
+    get:
+      operationId: videoBrainFrames
+      description: "uint8 frames, count x n_vertices row-major (left hemisphere then right). Headers X-Frame-Start, X-Frame-Count, X-Vertices."
+      parameters:
+        - { name: analyzer, in: query, schema: { type: string } }
+        - { name: start, in: query, schema: { type: integer } }
+        - { name: count, in: query, schema: { type: integer, maximum: 600 } }
+      responses:
+        "200":
+          description: Binary frames
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "404": { $ref: "#/components/responses/Error" }

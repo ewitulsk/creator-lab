@@ -8,6 +8,8 @@ import { usePull } from "@/api/discover";
 import { useIssueJobs } from "@/api/jobs";
 import { FormatBadge, OutlierBadge, StatusBadge } from "@/components/badges";
 import { PlotFigure } from "@/components/PlotFigure";
+import { useBrainMeta } from "@/api/brain";
+import { BrainPlayer } from "@/components/brain/BrainPlayer";
 import { MostReplayed } from "@/components/MostReplayed";
 import { RealEngagement } from "@/components/RealEngagement";
 import { Button } from "@/components/ui/button";
@@ -105,6 +107,7 @@ export function VideoDetailPage() {
   const pull = usePull();
   const [tab, setTab] = useState<string>("");
   const player = useRef<HTMLVideoElement>(null);
+  const brainMeta = useBrainMeta(id);
 
   if (q.isLoading) return <Spinner />;
   if (q.error || !q.data) return <Alert tone="destructive">{q.error?.message ?? "Not found"}</Alert>;
@@ -146,9 +149,14 @@ export function VideoDetailPage() {
       </div>
       {refresh.error ? <Alert tone="destructive" className="mb-4">{refresh.error.message}</Alert> : null}
 
+      {brainMeta.data ? (
+        <div className="mb-4">
+          <BrainPlayer meta={brainMeta.data} videoRef={player} videoUrl={media?.url} poster={v.thumbnail} />
+        </div>
+      ) : null}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <div className="space-y-4">
-          {media ? (
+          {brainMeta.data ? null : media ? (
             <video ref={player} src={media.url} controls className="w-full rounded-xl bg-black" poster={v.thumbnail} />
           ) : (
             <img src={v.thumbnail} alt="" className="w-full rounded-xl" referrerPolicy="no-referrer" />

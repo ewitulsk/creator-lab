@@ -814,6 +814,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/brain/assets/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: "mesh.json" | "mesh.bin" | "atlas.json";
+            };
+            cookie?: never;
+        };
+        /** @description fsaverage5 inflated mesh (mesh.json describes the arrays in mesh.bin) and the HCP-MMP1 atlas, exported by the TRIBE runner. */
+        get: operations["brainAsset"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/videos/{video_id}/brain": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                video_id: components["parameters"]["VideoId"];
+            };
+            cookie?: never;
+        };
+        get: operations["videoBrain"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/videos/{video_id}/brain/frames": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                video_id: components["parameters"]["VideoId"];
+            };
+            cookie?: never;
+        };
+        /** @description uint8 frames, count x n_vertices row-major (left hemisphere then right). Headers X-Frame-Start, X-Frame-Count, X-Vertices. */
+        get: operations["videoBrainFrames"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2822,6 +2878,111 @@ export interface operations {
                             title: string;
                         }[];
                     };
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    brainAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: "mesh.json" | "mesh.bin" | "atlas.json";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    videoBrain: {
+        parameters: {
+            query?: {
+                analyzer?: "tribe_video" | "tribe_title";
+            };
+            header?: never;
+            path: {
+                video_id: components["parameters"]["VideoId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Brain player metadata for the video's TRIBE result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        video_id: number;
+                        analyzer: string;
+                        result_id: number;
+                        n_timesteps: number;
+                        n_vertices: number;
+                        tr_s: number;
+                        start_s: number[];
+                        hrf_offset_s: number | null;
+                        /** @description uint8 code 0 = no prediction; 1..255 = lo..hi linearly; 128 = 0 */
+                        scale: {
+                            version: number;
+                            lo: number;
+                            hi: number;
+                            zero_code: number;
+                            nan_code: number;
+                            levels: number;
+                        };
+                        networks: null | {
+                            t: number[];
+                            networks: {
+                                [key: string]: (number | null)[];
+                            };
+                        };
+                        peaks: {
+                            [key: string]: {
+                                t: number;
+                                value: number;
+                            }[];
+                        };
+                        frames_url: string;
+                        max_frames_per_request: number;
+                    };
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    videoBrainFrames: {
+        parameters: {
+            query?: {
+                analyzer?: string;
+                start?: number;
+                count?: number;
+            };
+            header?: never;
+            path: {
+                video_id: components["parameters"]["VideoId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Binary frames */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
                 };
             };
             404: components["responses"]["Error"];

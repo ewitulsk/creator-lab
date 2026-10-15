@@ -84,11 +84,19 @@ def main() -> None:
     p.add_argument("--features-dir", default="features", help="feature cache folder under the cache dir")
     p.add_argument("--seed-cache", type=Path, help="existing neuralset cache to copy video/audio features from")
     p.add_argument("--path-map", action="append", default=[], help="OLD=NEW path prefix rewrite for seeded keys")
+    p.add_argument("--export-brain-assets", action="store_true", help="write the fsaverage5 mesh and atlas, then exit")
     p.add_argument("-v", "--verbose", action="store_true")
     args = p.parse_args()
     setup_logging(args.verbose)
+    env = read_env_file(REPO_ROOT / "backend" / ".env")
+    if args.export_brain_assets:
+        from .brain_assets import export_brain_assets
+
+        data_root = Path(env.get("DATA_ROOT") or REPO_ROOT.parent / "data")
+        out = args.out if args.out != Path("benchmark-out") else data_root / "brain"
+        export_brain_assets(out, (args.cache or data_root / "runner_cache" / "tribe") / "atlas")
+        return
     if args.benchmark:
-        env = read_env_file(REPO_ROOT / "backend" / ".env")
         data_root = Path(env.get("DATA_ROOT") or REPO_ROOT.parent / "data")
         from .pipeline import RunOptions
 

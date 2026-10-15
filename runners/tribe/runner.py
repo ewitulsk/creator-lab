@@ -45,6 +45,9 @@ class TribeRunner(BaseRunner):
 
     def handle(self, job: dict, reporter: Reporter) -> None:
         self._data_root = Path(job["data_root"])
+        from .brain_assets import ensure_brain_assets
+
+        ensure_brain_assets(self._data_root, Path(job["runner_cache_dir"]) / "tribe")
         kind = "video" if job["type"] == "tribe_video" else "title"
         input_name = "media" if kind == "video" else "title_text"
         items: list[Item] = []
