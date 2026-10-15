@@ -48,6 +48,22 @@ The Jobs page shows every job, which runner holds it and its live stage, video a
 percent. See [runners/README.md](runners/README.md), and
 [docs/tribe-timing.md](docs/tribe-timing.md) for how TRIBE rows map to seconds.
 
+## Docker (optional)
+
+The app and the CPU runner also run in containers; the TRIBE runner stays on the GPU host.
+
+```powershell
+docker compose up -d --build app                        # app on http://localhost:5050
+docker compose --profile runners up -d cpu-runner       # CPU runner, only when you want jobs processed
+```
+
+Compose reads `backend/.env` at run time (nothing secret is copied into the images) and
+mounts `CREATOR_LAB_DATA` (default `./data`, gitignored) as `/data`. Asset paths are stored
+relative to `DATA_ROOT`, so the same data folder works on the host and in Docker; just don't
+run two servers against it at once. To run the TRIBE runner against the containerized
+app, start it on the host with `CREATOR_LAB_URL=http://127.0.0.1:5050` and point it at the
+same data folder. CI builds both images and checks the app answers `/api/health`.
+
 ## Development
 
 ```powershell
@@ -87,8 +103,11 @@ data/
   media/{channel}/{video}/      video.mp4, thumb.jpg, captions.en.vtt, title.txt
   analyzers/{analyzer}/{version}/{video}/
   runner_cache/tribe/
-  exports/
-  backups/
+  backups/                      SQLite snapshots (online backup API), on the Settings schedule
 ```
+
+Settings → Exports and backups downloads videos, stat histories and analyzer results as
+CSV or Parquet, and backs the database up on demand. Old backups are pruned to
+`backups_to_keep`.
 
 Downloads are capped at `MAX_VIDEO_HEIGHT` (default 1080). 4K is never stored.

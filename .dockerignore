@@ -1,0 +1,23 @@
+# Never send secrets, data or local environments to the build context.
+**/.env
+**/*.env
+!.env.example
+data/
+**/*.sqlite*
+**/*.npy
+**/*.npz
+**/*.parquet
+**/*.mp4
+**/*.mkv
+**/*.webm
+**/*.wav
+**/.venv/
+**/node_modules/
+**/__pycache__/
+**/.pytest_cache/
+**/.ruff_cache/
+frontend/dist/
+results/*
+!results/README.md
+.git/
+.github/

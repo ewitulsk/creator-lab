@@ -57,3 +57,11 @@ def requeue_stale(_app: Flask) -> None:
     n = requeue_stale_jobs()
     if n:
         log.warning("requeued %d jobs whose runner went silent", n)
+
+
+@task("backup_database", minutes=30)
+def backup_database(_app: Flask) -> None:
+    from . import backups
+
+    if backups.due():
+        backups.backup_now()

@@ -1053,6 +1053,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["compareChannels"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/shorts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listShorts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/exports/{kind}.{fmt}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: "videos" | "video_snapshots" | "channel_snapshots" | "analyzer";
+                fmt: "csv" | "parquet";
+            };
+            cookie?: never;
+        };
+        get: operations["exportData"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listBackups"];
+        put?: never;
+        /** @description Back up the SQLite database now (online backup API), then prune to backups_to_keep. */
+        post: operations["createBackup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backups/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        get: operations["downloadBackup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1629,6 +1715,65 @@ export interface components {
                 [key: string]: unknown;
             };
             figures: string[];
+        };
+        FormatProfile: {
+            count: number;
+            /** @description Uploads inside the comparison window */
+            recent_count: number;
+            uploads_per_month: number;
+            median_views: number | null;
+            median_duration_s: number | null;
+            /** @description Share of window uploads with outlier score >= 2 */
+            hit_rate: number | null;
+            /** @description Share of window uploads with outlier score <= 0.5 */
+            flop_rate: number | null;
+            /** @description Median likes / views */
+            like_rate: number | null;
+            /** @description Median comments / views */
+            comment_rate: number | null;
+        };
+        ChannelProfile: {
+            id: number;
+            title: string;
+            handle: string | null;
+            thumbnail_url: string | null;
+            owned: boolean;
+            long: components["schemas"]["FormatProfile"];
+            short: components["schemas"]["FormatProfile"];
+            shorts_share: number | null;
+            monthly: {
+                month: string;
+                long: number;
+                short: number;
+                median_long_views: number | null;
+            }[];
+            subscribers: {
+                captured_at: string;
+                subscribers: number;
+            }[];
+            videos: {
+                id: number;
+                title: string;
+                published_at: string;
+                format: components["schemas"]["VideoFormat"];
+                views: number | null;
+                outlier_score: number;
+            }[];
+        };
+        Compare: {
+            months: number;
+            channels: components["schemas"]["ChannelProfile"][];
+        };
+        ShortsList: {
+            videos: (components["schemas"]["VideoSummary"] & {
+                channel_title: string;
+            })[];
+            total: number;
+        };
+        Backup: {
+            name: string;
+            bytes: number;
+            created_at: string;
         };
     };
     responses: {
@@ -3488,6 +3633,162 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    compareChannels: {
+        parameters: {
+            query: {
+                /** @description Comma-separated channel ids (1 to 8) */
+                channel_ids: string;
+                /** @description Window for the rate statistics (default 12) */
+                months?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One profile per channel, long-form and Shorts separately */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Compare"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    listShorts: {
+        parameters: {
+            query?: {
+                /** @description Comma-separated channel ids */
+                channel_id?: string;
+                sort?: "published_at" | "views" | "outlier_score";
+                limit?: number;
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Shorts, scored against each channel's Shorts baseline */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShortsList"];
+                };
+            };
+        };
+    };
+    exportData: {
+        parameters: {
+            query?: {
+                /** @description Comma-separated channel ids */
+                channel_id?: string;
+                selection?: components["parameters"]["Selection"];
+                /** @description name or name@version (kind=analyzer) */
+                analyzer?: string;
+            };
+            header?: never;
+            path: {
+                kind: "videos" | "video_snapshots" | "channel_snapshots" | "analyzer";
+                fmt: "csv" | "parquet";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A CSV or Parquet download */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                    "application/octet-stream": string;
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    listBackups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Database backups in DATA_ROOT/backups, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        backups: components["schemas"]["Backup"][];
+                    };
+                };
+            };
+        };
+    };
+    createBackup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The new backup */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        backup: {
+                            name: string;
+                            bytes: number;
+                        };
+                        backups: components["schemas"]["Backup"][];
+                    };
+                };
+            };
+        };
+    };
+    downloadBackup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description SQLite file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
             };
             404: components["responses"]["Error"];
         };

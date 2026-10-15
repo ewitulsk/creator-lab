@@ -702,6 +702,85 @@ components:
         computed_at: { type: [string, "null"] }
         results: { type: object, additionalProperties: true }
         figures: { type: array, items: { type: string } }
+    FormatProfile:
+      type: object
+      required: [count, recent_count, uploads_per_month, median_views, median_duration_s, hit_rate, flop_rate, like_rate, comment_rate]
+      properties:
+        count: { type: integer }
+        recent_count: { type: integer, description: Uploads inside the comparison window }
+        uploads_per_month: { type: number }
+        median_views: { type: [number, "null"] }
+        median_duration_s: { type: [number, "null"] }
+        hit_rate: { type: [number, "null"], description: Share of window uploads with outlier score >= 2 }
+        flop_rate: { type: [number, "null"], description: Share of window uploads with outlier score <= 0.5 }
+        like_rate: { type: [number, "null"], description: Median likes / views }
+        comment_rate: { type: [number, "null"], description: Median comments / views }
+    ChannelProfile:
+      type: object
+      required: [id, title, handle, thumbnail_url, owned, long, short, shorts_share, monthly, subscribers, videos]
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        handle: { type: [string, "null"] }
+        thumbnail_url: { type: [string, "null"] }
+        owned: { type: boolean }
+        long: { $ref: "#/components/schemas/FormatProfile" }
+        short: { $ref: "#/components/schemas/FormatProfile" }
+        shorts_share: { type: [number, "null"] }
+        monthly:
+          type: array
+          items:
+            type: object
+            required: [month, long, short, median_long_views]
+            properties:
+              month: { type: string }
+              long: { type: integer }
+              short: { type: integer }
+              median_long_views: { type: [number, "null"] }
+        subscribers:
+          type: array
+          items:
+            type: object
+            required: [captured_at, subscribers]
+            properties:
+              captured_at: { type: string }
+              subscribers: { type: integer }
+        videos:
+          type: array
+          items:
+            type: object
+            required: [id, title, published_at, format, views, outlier_score]
+            properties:
+              id: { type: integer }
+              title: { type: string }
+              published_at: { type: string }
+              format: { $ref: "#/components/schemas/VideoFormat" }
+              views: { type: [integer, "null"] }
+              outlier_score: { type: number }
+    Compare:
+      type: object
+      required: [months, channels]
+      properties:
+        months: { type: integer }
+        channels: { type: array, items: { $ref: "#/components/schemas/ChannelProfile" } }
+    ShortsList:
+      type: object
+      required: [videos, total]
+      properties:
+        videos:
+          type: array
+          items:
+            allOf:
+              - { $ref: "#/components/schemas/VideoSummary" }
+              - { type: object, required: [channel_title], properties: { channel_title: { type: string } } }
+        total: { type: integer }
+    Backup:
+      type: object
+      required: [name, bytes, created_at]
+      properties:
+        name: { type: string }
+        bytes: { type: integer }
+        created_at: { type: string }
   parameters:
     StudyId: { name: study_id, in: path, required: true, schema: { type: integer } }
     JobId: { name: job_id, in: path, required: true, schema: { type: integer } }
@@ -1865,4 +1944,84 @@ paths:
       operationId: studyFigure
       responses:
         "200": { description: PNG }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/compare:
+    get:
+      operationId: compareChannels
+      parameters:
+        - { name: channel_ids, in: query, required: true, schema: { type: string }, description: "Comma-separated channel ids (1 to 8)" }
+        - { name: months, in: query, schema: { type: integer }, description: Window for the rate statistics (default 12) }
+      responses:
+        "200":
+          description: One profile per channel, long-form and Shorts separately
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Compare" }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/shorts:
+    get:
+      operationId: listShorts
+      parameters:
+        - { name: channel_id, in: query, schema: { type: string }, description: Comma-separated channel ids }
+        - { name: sort, in: query, schema: { type: string, enum: [published_at, views, outlier_score] } }
+        - { name: limit, in: query, schema: { type: integer } }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: Shorts, scored against each channel's Shorts baseline
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShortsList" }
+  /api/exports/{kind}.{fmt}:
+    parameters:
+      - { name: kind, in: path, required: true, schema: { type: string, enum: [videos, video_snapshots, channel_snapshots, analyzer] } }
+      - { name: fmt, in: path, required: true, schema: { type: string, enum: [csv, parquet] } }
+    get:
+      operationId: exportData
+      parameters:
+        - { name: channel_id, in: query, schema: { type: string }, description: Comma-separated channel ids }
+        - { $ref: "#/components/parameters/Selection" }
+        - { name: analyzer, in: query, schema: { type: string }, description: "name or name@version (kind=analyzer)" }
+      responses:
+        "200":
+          description: A CSV or Parquet download
+          content:
+            text/csv: { schema: { type: string } }
+            application/octet-stream: { schema: { type: string, format: binary } }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/backups:
+    get:
+      operationId: listBackups
+      responses:
+        "200":
+          description: Database backups in DATA_ROOT/backups, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [backups]
+                properties:
+                  backups: { type: array, items: { $ref: "#/components/schemas/Backup" } }
+    post:
+      operationId: createBackup
+      description: Back up the SQLite database now (online backup API), then prune to backups_to_keep.
+      responses:
+        "200":
+          description: The new backup
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [backup, backups]
+                properties:
+                  backup: { type: object, required: [name, bytes], properties: { name: { type: string }, bytes: { type: integer } } }
+                  backups: { type: array, items: { $ref: "#/components/schemas/Backup" } }
+  /api/backups/{name}:
+    parameters: [{ name: name, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: downloadBackup
+      responses:
+        "200": { description: SQLite file, content: { application/octet-stream: { schema: { type: string, format: binary } } } }
         "404": { $ref: "#/components/responses/Error" }
