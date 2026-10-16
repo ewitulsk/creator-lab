@@ -14,8 +14,8 @@ TITLE = "Does TRIBE predict real audience retention?"
 SUMMARY = (
     "Within each of Evan's own videos, does TRIBE's predicted engagement curve track where real viewers drop "
     "off or rewatch, beyond the generic retention decay and beyond cheap features (cuts, loudness, speech rate)? "
-    "Other creators' videos use YouTube's public 'Most replayed' heatmap as the target, and owned videos check "
-    "how good a proxy that heatmap is."
+    "Only videos with both a TRIBE result and a real YouTube Analytics retention curve are members; the public "
+    "'Most replayed' heatmap is a secondary comparison on those videos, never a stand-in for retention."
 )
 
 PARAMS = {
@@ -26,7 +26,6 @@ PARAMS = {
     "lags_s": [0, 2, 5],
     "permutations": 1000,
     "min_shift_bins": 5,
-    "include_public_heatmap": True,
 }
 
 REQUIRES = ["media@1", "tribe_video@1", "tribe_engagement@1", "visual_features@1", "audio_features@1", "heatmap@1"]
@@ -45,7 +44,11 @@ MEASURES = [
         "definition": "audienceWatchRatio minus a smooth decay fit (a*exp(-b*x)+c) per video",
     },
     {"name": "relative", "kind": "target", "definition": "relativeRetentionPerformance per 1% bin"},
-    {"name": "heatmap", "kind": "target", "definition": "public 'Most replayed' value per 1% bin (other creators)"},
+    {
+        "name": "heatmap",
+        "kind": "comparison",
+        "definition": "public 'Most replayed' value per 1% bin, on member videos only (secondary; not retention)",
+    },
     {"name": "engagement_index", "kind": "predictor", "definition": "tribe_engagement: attention minus default mode"},
     {"name": "d_engagement_index", "kind": "predictor", "definition": "first difference of the engagement index"},
     {"name": "stimulus_drive", "kind": "predictor", "definition": "tribe_engagement: whole-cortex magnitude"},
@@ -68,10 +71,13 @@ leave or rewatch, beyond the generic retention decay every video has?
 
 ## Samples (criteria)
 
-- **Owned**: Evan's own long-form videos (at least 3 minutes, not live) with owner retention
-  data from "Sync data from YT". Targets: real retention.
-- **Public**: other creators' long-form videos with YouTube's public "Most replayed" heatmap.
-  Target: the heatmap.
+- **Members**: Evan's own long-form videos (at least 3 minutes, not live) that have BOTH a
+  finished TRIBE result (tribe_video) AND a real audience retention curve from YouTube
+  Analytics ("Sync data from YT"). Targets: real retention only.
+- Videos missing either are not members. They are listed as candidates: "has retention,
+  needs TRIBE" (a TRIBE run would add them) or "has TRIBE, needs retention" (an owner sync).
+- The public "Most replayed" heatmap is never used as retention. Where a member also has
+  one, it is a secondary comparison (test 5).
 
 ## Curves (draft, pending Evan's approval)
 
@@ -79,7 +85,6 @@ leave or rewatch, beyond the generic retention decay every video has?
   Brain curves in seconds are converted with the video's length (ratio = t / duration).
 - Targets (owned): drop-off per bin (negated change in audienceWatchRatio), residual retention
   (audienceWatchRatio minus a per-video smooth decay fit), and relativeRetentionPerformance.
-- Target (public): the heatmap value per bin.
 - Predictors: engagement index, its first difference, stimulus drive, anterior insula, Yeo-7
   network curves; lags of 0, 2 and 5 s (predictor at t - lag).
 - Controls: shot cuts, loudness and speech rate over time.
@@ -103,44 +108,56 @@ leave or rewatch, beyond the generic retention decay every video has?
 
 
 def criteria(store, params: dict, channel_id: int | None = None) -> Criteria:
+    """Members: owned videos with a finished TRIBE result AND real retention. Nothing else.
+
+    Videos missing one of the two are candidates, counted and named in the rules but never
+    members. With channel_id (Discover's "videos needed for this study"), candidates are
+    returned too, with role needs_tribe / needs_retention, so they can be pulled or synced.
+    """
     members: list[Member] = []
-    owned = store.channels(owned=True)
-    owned_ids = {c["id"] for c in owned}
-    channels = owned
-    if params.get("include_public_heatmap"):
-        channels = store.channels()
+    channels = store.channels(owned=True)
     if channel_id is not None:
         channels = [c for c in channels if c["id"] == channel_id]
-    n_owned = n_public = n_waiting = 0
+    need_tribe: list[str] = []
+    need_retention: list[str] = []
     for ch in channels:
-        is_owned = ch["id"] in owned_ids
         for v in store.videos(
             channel_ids=[ch["id"]], formats=params["formats"], min_duration_s=params["min_duration_s"]
         ):
-            if is_owned:
-                if store.retention(v["id"]):
-                    members.append(Member(v["id"], "owned", ch["title"], "owner retention curve available"))
-                    n_owned += 1
-                elif channel_id is not None:
-                    members.append(Member(v["id"], "owned", ch["title"], "needs 'Sync data from YT'"))
-                    n_waiting += 1
-            elif store.heatmap(v["id"]):
-                members.append(Member(v["id"], "public", ch["title"], "public heatmap available"))
-                n_public += 1
-            elif channel_id is not None:
-                members.append(Member(v["id"], "public", ch["title"], "needs a heatmap capture"))
-                n_waiting += 1
+            tribe = store.result(v["id"], "tribe_video")
+            has_tribe = bool(tribe and tribe["status"] == "done")
+            has_retention = bool(store.retention(v["id"]))
+            if has_tribe and has_retention:
+                members.append(Member(v["id"], "owned", ch["title"], "TRIBE result and real retention"))
+            elif has_retention:
+                need_tribe.append(v["title"])
+                if channel_id is not None:
+                    members.append(Member(v["id"], "needs_tribe", ch["title"], "has retention, needs TRIBE"))
+            elif has_tribe:
+                need_retention.append(v["title"])
+                if channel_id is not None:
+                    members.append(
+                        Member(v["id"], "needs_retention", ch["title"], "has TRIBE, needs 'Sync data from YT'")
+                    )
+    n = sum(1 for m in members if m.role == "owned")
     rules = (
-        f"{n_owned} owned videos with real retention and {n_public} public videos with a 'Most replayed' heatmap; "
-        f"long-form, at least {params['min_duration_s'] // 60} min, no live streams."
-        + (
-            f" {n_waiting} more video{'s' if n_waiting != 1 else ''} in this channel"
-            f" need{'s' if n_waiting == 1 else ''} data first (owner sync or a heatmap capture)."
-            if channel_id is not None and n_waiting
-            else ""
-        )
+        f"{n} owned video{'s' if n != 1 else ''} with both a TRIBE result and real YouTube Analytics retention "
+        f"(long-form, at least {params['min_duration_s'] // 60} min, no live streams). The public heatmap is a "
+        "secondary comparison only."
     )
-    return Criteria(members, rules, {"owned": n_owned, "public": n_public})
+    if need_tribe:
+        rules += f" Candidates that only need TRIBE ({len(need_tribe)}): " + "; ".join(need_tribe[:20]) + "."
+    if need_retention:
+        rules += (
+            f" Candidates that only need an owner sync ({len(need_retention)}): " + "; ".join(need_retention[:20]) + "."
+        )
+    counts = {
+        "owned": n,
+        "public": 0,
+        "candidates_need_tribe": len(need_tribe),
+        "candidates_need_retention": len(need_retention),
+    }
+    return Criteria(members, rules, counts)
 
 
 # ------------------------------------------------------------------ curves

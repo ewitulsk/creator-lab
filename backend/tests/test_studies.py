@@ -232,6 +232,7 @@ def retention_world(app, n_owned=6, effect=1.0):
     db.session.flush()
     for i in range(n_owned):
         v = add_video(owned, f"own{i}", 50 + i, 1.0, duration=400)
+        put_result(app, v, "tribe_video")
         t = np.arange(400)
         signal = np.sin(t / 15 + i)  # what TRIBE "sees"
         ratios = np.arange(1, 101) / 100
@@ -299,6 +300,14 @@ def retention_world(app, n_owned=6, effect=1.0):
             None,
             "heatmap",
         )
+    # Owned, but missing one of the two: candidates, never members.
+    needs_tribe = add_video(owned, "own_notribe", 45, 1.0, duration=400)
+    for r in np.arange(1, 101) / 100:
+        db.session.add(
+            RetentionPoint(video_id=needs_tribe.id, sync_id=sync.id, audience_type="ALL", elapsed_ratio=float(r),
+                           audience_watch_ratio=0.5, relative_retention_performance=0.5, video_duration_s=400)
+        )  # fmt: skip
+    put_result(app, add_video(owned, "own_noret", 44, 1.0, duration=400), "tribe_video")
     for i in range(3):
         v = add_video(public, f"pub{i}", 40 + i, 1.0, duration=300)
         store_capture(
@@ -320,11 +329,17 @@ def test_retention_criteria_and_discover_filter(client, app):
     owned, public = retention_world(app)
     sid = study("tribe-retention").id
     r = client.post(f"/api/studies/{sid}/select").json
-    assert r["stats"] == {"owned": 6, "public": 3}
+    # Members need BOTH a TRIBE result and real retention; the public heatmap never qualifies a video.
+    assert r["stats"] == {"owned": 6, "public": 0, "candidates_need_tribe": 1, "candidates_need_retention": 1}
+    members = {m.video.external_id for m in db.session.get(Study, sid).members}
+    assert members == {f"own{i}" for i in range(6)}
+    assert "only need TRIBE (1)" in r["rules"] and "only need an owner sync (1)" in r["rules"]
+    d = client.get(f"/api/discover/channels/{owned.id}/videos?study_id={sid}").json
+    roles = {v["external_id"]: v["role"] for v in d["videos"]}
+    assert roles["own0"] == "owned"
+    assert roles["own_notribe"] == "needs_tribe" and roles["own_noret"] == "needs_retention"
     d = client.get(f"/api/discover/channels/{public.id}/videos?study_id={sid}").json
-    roles = {v["external_id"]: (v["role"], v["group"]) for v in d["videos"]}
-    assert roles["pub0"] == ("public", "ludwig") and "pub_nohm" in roles  # needs a heatmap capture first
-    assert "1 more video in this channel needs data first" in d["study_rules"]
+    assert d["videos"] == []  # other creators' heatmaps are not retention
 
 
 def test_retention_analysis_and_heatmap_proxy(client, app):
@@ -332,14 +347,13 @@ def test_retention_analysis_and_heatmap_proxy(client, app):
     sid = study("tribe-retention").id
     client.post(f"/api/studies/{sid}/select")
     res = svc.analyze(db.session.get(Study, sid)).results
-    assert res["n_owned"] == 6 and res["n_public"] == 3
+    assert res["n_owned"] == 6 and res["n_public"] == 0
     eng = res["owned"]["brain"]["engagement_index|residual|lag0"]
     assert eng["mean_rho"] > 0.5 and eng["positive"] == 6 and eng["p_perm"] < 0.05
     assert res["owned"]["controls"]["cuts|residual|lag0"]["mean_rho"] < 0.3
     assert res["anterior_insula_direction"]["as_expected"] is True
     assert res["heatmap_vs_real_retention"]["watch"]["mean_rho"] > 0.9
     assert res["owned"]["ridge_brain"]["mean_heldout_rho"] is not None
-    assert "engagement_index|heatmap|lag0" in res["public_heatmap"]["brain"]
 
 
 def test_pull_into_study_and_exports(client, app, yt):

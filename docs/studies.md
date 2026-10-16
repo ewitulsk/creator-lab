@@ -59,10 +59,12 @@ circular-shift nulls and curve resampling. The app picks the module up on its ne
   pairs within Evan's channels; paired tests on network and engagement measures; brain
   versus cheap-feature versus pre-brain-embedding classifiers.
 - **Does TRIBE predict real audience retention?** (`studies/retention_v1.py`): within-video
-  correlation of TRIBE engagement curves with residual retention and drop-off (owned
-  videos) and with the public "Most replayed" heatmap (other creators), with circular-shift
-  nulls, leave-one-video-out ridge against cheap controls, and a heatmap-versus-real-retention
-  proxy check.
+  correlation of TRIBE engagement curves with residual retention and drop-off, with
+  circular-shift nulls, leave-one-video-out ridge against cheap controls, and a
+  heatmap-versus-real-retention proxy check. Members are only Evan's own videos with BOTH a
+  finished TRIBE result and a real YouTube Analytics retention curve; videos missing one are
+  listed as candidates ("needs TRIBE" / "needs retention"), and the public heatmap is a
+  secondary comparison, never a stand-in for retention.
 
 Both start as drafts: their measures are proposals until Evan locks them.
 
