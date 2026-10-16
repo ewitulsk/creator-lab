@@ -1,0 +1,112 @@
+# Viral levers rubric, scored by Gemini (method gemini_agentic).
+#
+# Edit freely: the anchors, sub-items and wording all go into the prompt. Every score is
+# stored with this file's SHA-256, so any edit shows up as a new rubric hash. When you
+# change what a score means (not just a typo), also bump `version` so results are easy to
+# tell apart; scores at an older version or hash are kept, never overwritten.
+#
+# Scale: 1 to 5 for every lever and sub-item. Anchors describe levels 1, 2, 3, 4 and 5.
+
+version: 1
+name: levers
+instructions: |
+  You are scoring one video on six levers that predict how well online videos perform.
+  Watch and listen to the whole video. Judge only what is in the video itself: its
+  pictures, sound, speech and on-screen text. Score each lever and sub-item from 1 to 5
+  using the anchors. Use the full scale; 3 means typical for online video. Give a short
+  reason (at most two sentences) and timestamped evidence in seconds from the start.
+  Do not guess how popular the video is or who made it.
+
+levers:
+  attention:
+    system: 1
+    question: Does the video grab attention and keep it?
+    anchors:
+      1: Slow or confusing start, long stretches where nothing changes, easy to click away.
+      2: Some interest, but a weak opening and frequent lulls.
+      3: A decent opening and a steady pace with occasional lulls.
+      4: A strong opening question or promise, pacing that keeps renewing interest.
+      5: An irresistible opening, tension or curiosity sustained from start to finish.
+    items:
+      hook_strength: How strongly the first 30 seconds make the viewer want to keep watching.
+      curiosity_gap: Whether a question or promise is posed early and paid off later (and how late).
+      pacing: How often the picture, topic or energy changes to renew interest.
+
+  emotion:
+    system: 1
+    question: How much feeling does the video show and provoke?
+    anchors:
+      1: Flat; little feeling displayed or provoked.
+      2: Mild feeling in places.
+      3: Clear feeling at some moments.
+      4: Strong, varied feeling across the video.
+      5: Intense feeling the viewer can hardly avoid sharing.
+    items:
+      displayed_intensity: How intense the emotions of the people on screen are.
+      elicited_emotion: How strongly a typical viewer would likely feel something.
+      humor: How funny the video is.
+
+  comprehension:
+    system: 1
+    question: How easy is the video to follow?
+    anchors:
+      1: Hard to follow; unclear what is happening or why.
+      2: Often confusing or overloaded.
+      3: Mostly clear with some confusing parts.
+      4: Clear throughout; visuals support the speech.
+      5: Effortless to follow; every element reinforces the message.
+    items:
+      ease_of_following: How easily a first-time viewer understands what is going on.
+      visuals_match_speech: How well what is shown matches what is said.
+      on_screen_text: How helpful on-screen text and graphics are (1 if absent and needed).
+      overload: How free the video is from overload (5 = never overloaded, 1 = constantly).
+
+  valuable:
+    system: 2
+    question: Does the viewer leave with something useful?
+    anchors:
+      1: Nothing usable; no new knowledge, skill or decision.
+      2: A little information of limited use.
+      3: Some useful information or perspective.
+      4: Clearly useful; the viewer could act on it.
+      5: Highly useful; the viewer can do or decide something important afterwards.
+    items:
+      actionable: Whether the viewer leaves able to do or decide something.
+
+  memorable:
+    system: 2
+    question: Will the viewer remember it tomorrow?
+    anchors:
+      1: Forgettable; no story and no standout moment.
+      2: A faint story or a minor moment.
+      3: A recognisable story or one moment worth recalling.
+      4: A clear story arc and a distinctive moment or line.
+      5: A gripping story with moments or lines people will quote.
+    items:
+      story_arc: A protagonist, an obstacle and a change by the end.
+      distinctive_moment: A distinctive moment or line that sticks.
+
+  shareable:
+    system: 2
+    question: Would people pass it on? (Berger's STEPPS)
+    anchors:
+      1: No reason to share.
+      2: Weak reasons to share.
+      3: Some reason to share for some viewers.
+      4: Strong reasons to share for many viewers.
+      5: Viewers would feel compelled to share it.
+    items:
+      social_currency: Sharing it makes the sharer look good or in the know.
+      triggers: Everyday cues will remind people of it.
+      emotion: It provokes high-arousal emotion (awe, amusement, anger, anxiety).
+      public: Its ideas or behaviours are visible and easy to imitate.
+      practical_value: It is useful enough to pass on.
+      stories: Its message rides on a story people retell.
+
+emotional_moments: |
+  List the moments of strongest feeling (up to 15): the time in seconds, intensity from 1
+  to 5, the emotion, and whether it is displayed by someone on screen or likely elicited
+  in the viewer.
+
+hook: |
+  Also give a single hook score from 1 to 5 for the first 30 seconds only.

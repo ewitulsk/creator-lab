@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: No secrets, databases, arrays or media are tracked
+        run: python3 scripts/check_tracked_files.py
+
+  runners:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: runners
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync --locked
+      - name: Lint
+        run: uv run ruff check .
+      - name: Format
+        run: uv run ruff format --check .
+      - name: Test
+        run: uv run pytest
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync --locked
+      - name: Lint
+        run: uv run ruff check . ../studies
+      - name: Format
+        run: uv run ruff format --check . ../studies
+      - name: Test
+        run: uv run pytest
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - name: API types are up to date with openapi.yaml
+        run: |
+          pnpm gen:api
+          git diff --exit-code -- src/api/schema.d.ts
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Lint
+        run: pnpm lint
+      - name: Test
+        run: pnpm test
+      - name: Build
+        run: pnpm build
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - name: Build the app image
+        run: docker buildx build --target app --load -t creator-lab-app .
+      - name: Build the CPU runner image
+        run: docker buildx build --target cpu-runner --load -t creator-lab-cpu-runner .
+      - name: No secrets in the images
+        run: |
+          for img in creator-lab-app creator-lab-cpu-runner; do
+            if docker run --rm --entrypoint sh "$img" -c 'find /app -name ".env" -o -name "*.sqlite" | grep .'; then
+              echo "$img contains a .env or database file"; exit 1
+            fi
+          done
+      - name: App starts and answers /api/health
+        run: |
+          docker run -d --name app -p 5050:5050 \
+            -e SECRET_KEY=ci-only -e ADMIN_PASSWORD=ci-only-password -e RUNNER_TOKEN=ci-only -e DISABLE_SCHEDULER=1 \
+            creator-lab-app
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:5050/api/health && exit 0; sleep 2; done
+          docker logs app; exit 1
+      - name: CPU runner imports and finds ffmpeg
+        run: docker run --rm creator-lab-cpu-runner sh -c 'ffmpeg -version | head -1 && deno --version | head -1 && uv run --project runners --no-sync python -c "import runners.cpu.runner, yt_dlp; print(yt_dlp.version.__version__)"'

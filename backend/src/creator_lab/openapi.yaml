@@ -1,0 +1,2368 @@
+openapi: 3.1.0
+info:
+  title: creator-lab API
+  version: 0.1.0
+  description: |
+    REST API for the creator-lab platform. Browser calls use a session cookie
+    (log in via /api/auth/login) and must send `X-Requested-With` on writes.
+    Runners use `Authorization: Bearer <RUNNER_TOKEN>`.
+servers:
+  - url: /
+security:
+  - session: []
+components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: session
+    runner:
+      type: http
+      scheme: bearer
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+    Ok:
+      type: object
+      required: [ok]
+      properties:
+        ok: { type: boolean }
+    User:
+      type: object
+      required: [id, username]
+      properties:
+        id: { type: integer }
+        username: { type: string }
+    UserResponse:
+      type: object
+      required: [user]
+      properties:
+        user: { $ref: "#/components/schemas/User" }
+    DiskReport:
+      type: object
+      required: [drive_total, drive_free, drive_used, data_bytes, folders, measured_at]
+      properties:
+        drive_total: { type: integer }
+        drive_free: { type: integer }
+        drive_used: { type: integer }
+        data_bytes: { type: integer }
+        folders:
+          type: object
+          additionalProperties: { type: integer }
+        measured_at: { type: number }
+    Quota:
+      type: object
+      required: [day, units, calls, budget]
+      properties:
+        day: { type: string }
+        units: { type: integer }
+        calls: { type: integer }
+        budget: { type: integer }
+    RunnerSummary:
+      type: object
+      required: [id, name, type, online, last_heartbeat]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        type: { type: string }
+        online: { type: boolean }
+        last_heartbeat: { type: [string, "null"] }
+    DashboardError:
+      type: object
+      required: [kind, id, title, detail, at]
+      properties:
+        kind: { type: string, enum: [job, channel] }
+        id: { type: integer }
+        title: { type: string }
+        detail: { type: string }
+        at: { type: [string, "null"] }
+    Dashboard:
+      type: object
+      required: [counts, videos_by_format, jobs_by_status, runners, errors, disk, quota]
+      properties:
+        counts:
+          type: object
+          required: [channels, videos, video_snapshots, channel_snapshots, assets, results_done, studies]
+          properties:
+            channels: { type: integer }
+            videos: { type: integer }
+            video_snapshots: { type: integer }
+            channel_snapshots: { type: integer }
+            assets: { type: integer }
+            results_done: { type: integer }
+            studies: { type: integer }
+        videos_by_format:
+          type: object
+          additionalProperties: { type: integer }
+        jobs_by_status:
+          type: object
+          additionalProperties: { type: integer }
+        runners:
+          type: array
+          items: { $ref: "#/components/schemas/RunnerSummary" }
+        errors:
+          type: array
+          items: { $ref: "#/components/schemas/DashboardError" }
+        disk: { $ref: "#/components/schemas/DiskReport" }
+        quota: { $ref: "#/components/schemas/Quota" }
+    Schedules:
+      type: object
+      required:
+        - snapshot_young_days
+        - snapshot_young_interval_hours
+        - snapshot_old_interval_hours
+        - channel_snapshot_interval_hours
+        - new_upload_check_hours
+        - scheduler_tick_minutes
+        - daily_quota_budget
+        - runner_timeout_minutes
+        - download_pause_seconds
+        - backup_interval_hours
+        - backups_to_keep
+      properties:
+        snapshot_young_days: { type: integer }
+        snapshot_young_interval_hours: { type: integer }
+        snapshot_old_interval_hours: { type: integer }
+        channel_snapshot_interval_hours: { type: integer }
+        new_upload_check_hours: { type: integer }
+        scheduler_tick_minutes: { type: integer }
+        daily_quota_budget: { type: integer }
+        runner_timeout_minutes: { type: integer }
+        download_pause_seconds: { type: integer }
+        backup_interval_hours: { type: integer }
+        backups_to_keep: { type: integer }
+    Settings:
+      type: object
+      required: [keys, data_root, brainthing_dir, max_video_height, schedules, disk, quota]
+      properties:
+        keys:
+          type: object
+          description: Whether each secret is set. Values are never returned.
+          required: [youtube_api_key, runner_token, secret_key]
+          properties:
+            youtube_api_key: { type: boolean }
+            runner_token: { type: boolean }
+            secret_key: { type: boolean }
+        data_root: { type: string }
+        brainthing_dir: { type: [string, "null"] }
+        max_video_height: { type: integer }
+        schedules: { $ref: "#/components/schemas/Schedules" }
+        disk: { $ref: "#/components/schemas/DiskReport" }
+        quota: { $ref: "#/components/schemas/Quota" }
+    ChannelSummary:
+      type: object
+      required: [id, external_id, handle, title, thumbnail_url, country, followed, auto_track_new, is_mine, owned, tags, added_at, backfilled_at, last_synced_at, sync_error, syncing, subscribers, total_views, uploads, video_count, tracked_count, videos_by_format, disk_bytes]
+      properties:
+        id: { type: integer }
+        external_id: { type: string }
+        handle: { type: [string, "null"] }
+        title: { type: string }
+        thumbnail_url: { type: [string, "null"] }
+        country: { type: [string, "null"] }
+        followed: { type: boolean, description: Daily channel stats and new-upload checks }
+        auto_track_new: { type: boolean, description: Pull new uploads automatically }
+        is_mine: { type: boolean }
+        owned: { type: boolean, description: Connected with YouTube owner sign-in }
+        tags: { type: array, items: { type: string } }
+        added_at: { type: [string, "null"] }
+        backfilled_at: { type: [string, "null"] }
+        last_synced_at: { type: [string, "null"] }
+        sync_error: { type: [string, "null"] }
+        syncing: { type: boolean }
+        subscribers: { type: [integer, "null"] }
+        total_views: { type: [integer, "null"] }
+        uploads: { type: [integer, "null"], description: Upload count YouTube reports }
+        video_count: { type: [integer, "null"], description: Videos stored (discovered + tracked) }
+        tracked_count: { type: integer }
+        videos_by_format:
+          type: object
+          additionalProperties: { type: integer }
+        disk_bytes: { type: integer }
+    ChannelDetail:
+      allOf:
+        - $ref: "#/components/schemas/ChannelSummary"
+        - type: object
+          required: [description, notes, uploads_playlist, published_at, url]
+          properties:
+            description: { type: [string, "null"] }
+            notes: { type: [string, "null"] }
+            uploads_playlist: { type: [string, "null"] }
+            published_at: { type: [string, "null"] }
+            url: { type: string }
+    ChannelSnapshot:
+      type: object
+      required: [captured_at, subscribers, views, video_count]
+      properties:
+        captured_at: { type: string }
+        subscribers: { type: [integer, "null"] }
+        views: { type: [integer, "null"] }
+        video_count: { type: [integer, "null"] }
+    VideoFormat:
+      type: string
+      enum: [long, short, live, premiere]
+    VideoSummary:
+      type: object
+      required: [id, external_id, channel_id, title, published_at, duration_s, format, aspect, views, likes, comments, outlier_score, outlier_baseline, thumbnail, has_thumbnail, gone, selection, tracked_at, url]
+      properties:
+        id: { type: integer }
+        external_id: { type: string }
+        channel_id: { type: integer }
+        title: { type: string }
+        published_at: { type: [string, "null"] }
+        duration_s: { type: [integer, "null"] }
+        format: { $ref: "#/components/schemas/VideoFormat" }
+        aspect: { type: [number, "null"] }
+        views: { type: [integer, "null"] }
+        likes: { type: [integer, "null"] }
+        comments: { type: [integer, "null"] }
+        outlier_score: { type: [number, "null"] }
+        outlier_baseline: { type: [number, "null"] }
+        thumbnail: { type: string }
+        has_thumbnail: { type: [boolean, "null"] }
+        gone: { type: boolean }
+        selection: { type: string, enum: [discovered, tracked] }
+        tracked_at: { type: [string, "null"] }
+        url: { type: string }
+    VideoList:
+      type: object
+      required: [videos, total]
+      properties:
+        videos: { type: array, items: { $ref: "#/components/schemas/VideoSummary" } }
+        total: { type: integer }
+    VideoSnapshot:
+      type: object
+      required: [captured_at, views, likes, comments, source]
+      properties:
+        captured_at: { type: string }
+        views: { type: [integer, "null"] }
+        likes: { type: [integer, "null"] }
+        comments: { type: [integer, "null"] }
+        source: { type: string }
+    Asset:
+      type: object
+      required: [id, kind, variant, path, bytes, width, height, codec, url, created_at]
+      properties:
+        id: { type: integer }
+        kind: { type: string }
+        variant: { type: string }
+        path: { type: string }
+        bytes: { type: [integer, "null"] }
+        width: { type: [integer, "null"] }
+        height: { type: [integer, "null"] }
+        codec: { type: [string, "null"] }
+        url: { type: string }
+        created_at: { type: [string, "null"] }
+    AnalyzerStatus:
+      type: object
+      required: [analyzer, version, title, runner_type, status, summary, error, job_id, output_path, computed_at]
+      properties:
+        analyzer: { type: string }
+        version: { type: string }
+        title: { type: string }
+        runner_type: { type: string }
+        status: { type: string, enum: [done, queued, running, failed, missing] }
+        summary: { type: object, additionalProperties: true }
+        error: { type: [string, "null"] }
+        job_id: { type: [integer, "null"] }
+        output_path: { type: [string, "null"] }
+        computed_at: { type: [string, "null"] }
+    VideoDetail:
+      type: object
+      required: [video, snapshots, assets, analyzers]
+      properties:
+        video:
+          allOf:
+            - $ref: "#/components/schemas/VideoSummary"
+            - type: object
+              required: [description, tags, category_id, language, privacy, discovered_at, last_snapshot_at, channel]
+              properties:
+                description: { type: [string, "null"] }
+                tags: { type: array, items: { type: string } }
+                category_id: { type: [string, "null"] }
+                language: { type: [string, "null"] }
+                privacy: { type: [string, "null"] }
+                discovered_at: { type: [string, "null"] }
+                last_snapshot_at: { type: [string, "null"] }
+                channel:
+                  type: object
+                  required: [id, title, handle, is_mine, owned]
+                  properties:
+                    id: { type: integer }
+                    title: { type: string }
+                    handle: { type: [string, "null"] }
+                    is_mine: { type: boolean }
+                    owned: { type: boolean }
+        snapshots: { type: array, items: { $ref: "#/components/schemas/VideoSnapshot" } }
+        assets: { type: array, items: { $ref: "#/components/schemas/Asset" } }
+        analyzers: { type: array, items: { $ref: "#/components/schemas/AnalyzerStatus" } }
+    ChannelResponse:
+      type: object
+      required: [channel]
+      properties:
+        channel: { $ref: "#/components/schemas/ChannelDetail" }
+    ChannelCard:
+      type: object
+      required: [external_id, title, handle, description, thumbnail_url, subscribers, video_count, total_views, channel_id]
+      properties:
+        external_id: { type: string }
+        title: { type: string }
+        handle: { type: [string, "null"] }
+        description: { type: string }
+        thumbnail_url: { type: [string, "null"] }
+        subscribers: { type: [integer, "null"] }
+        video_count: { type: [integer, "null"] }
+        total_views: { type: [integer, "null"] }
+        channel_id: { type: [integer, "null"], description: Set when the channel is already stored }
+    DiscoverVideo:
+      allOf:
+        - $ref: "#/components/schemas/VideoSummary"
+        - type: object
+          required: [role, group]
+          properties:
+            role: { type: [string, "null"], description: "Study role, e.g. hit or flop" }
+            group: { type: [string, "null"], description: "Study group, e.g. pair 3" }
+    DiscoverVideos:
+      type: object
+      required: [videos, matching, listing, study_rules]
+      properties:
+        study_rules: { type: [string, "null"], description: The study criteria rendered for this channel when study_id is given }
+        videos: { type: array, items: { $ref: "#/components/schemas/DiscoverVideo" } }
+        matching: { type: integer, description: Videos matching the filters before top/bottom N }
+        listing:
+          type: object
+          required: [listed_at, fresh, syncing, error]
+          properties:
+            listed_at: { type: [string, "null"] }
+            fresh: { type: boolean }
+            syncing: { type: boolean }
+            error: { type: [string, "null"] }
+    PullResult:
+      type: object
+      required: [pulled, already_tracked, jobs]
+      properties:
+        pulled: { type: integer }
+        already_tracked: { type: integer }
+        jobs: { type: array, items: { type: integer } }
+        study_added: { type: integer }
+    JobProgress:
+      type: object
+      description: The runner's exact live state, e.g. stage "Whisper" on video 5 of 10 at 1%.
+      properties:
+        stage: { type: string }
+        stage_index: { type: integer }
+        stage_count: { type: integer }
+        video_index: { type: integer }
+        video_count: { type: integer }
+        video_id: { type: integer }
+        stage_percent: { type: number }
+        overall_percent: { type: number }
+        message: { type: string }
+        eta_seconds: { type: number }
+        updated_at: { type: string }
+    JobSummary:
+      type: object
+      required: [id, type, analyzer, version, title, runner_type, status, priority, created_by, runner, progress, progress_text, items_total, items_by_status, attempts, depends_on, error, created_at, claimed_at, started_at, finished_at, elapsed_seconds]
+      properties:
+        id: { type: integer }
+        type: { type: string }
+        analyzer: { type: string }
+        version: { type: string }
+        title: { type: string }
+        runner_type: { type: string }
+        status: { type: string, enum: [queued, claimed, running, done, failed, cancelled] }
+        priority: { type: integer }
+        created_by: { type: string }
+        runner:
+          type: [object, "null"]
+          required: [id, name]
+          properties:
+            id: { type: integer }
+            name: { type: string }
+        progress: { $ref: "#/components/schemas/JobProgress" }
+        progress_text: { type: string }
+        items_total: { type: integer }
+        items_by_status: { type: object, additionalProperties: { type: integer } }
+        attempts: { type: integer }
+        depends_on: { type: array, items: { type: integer } }
+        error: { type: [string, "null"] }
+        created_at: { type: [string, "null"] }
+        claimed_at: { type: [string, "null"] }
+        started_at: { type: [string, "null"] }
+        finished_at: { type: [string, "null"] }
+        elapsed_seconds: { type: [number, "null"] }
+    StageTiming:
+      type: object
+      required: [stage, started_at, finished_at, seconds]
+      properties:
+        stage: { type: string }
+        started_at: { type: string }
+        finished_at: { type: [string, "null"] }
+        seconds: { type: [number, "null"] }
+    JobItemInfo:
+      type: object
+      required: [video_id, title, external_id, status, stage, error, started_at, finished_at]
+      properties:
+        video_id: { type: integer }
+        title: { type: string }
+        external_id: { type: string }
+        status: { type: string }
+        stage: { type: [string, "null"] }
+        error: { type: [string, "null"] }
+        started_at: { type: [string, "null"] }
+        finished_at: { type: [string, "null"] }
+    JobPayloadItem:
+      type: object
+      required: [video_id, external_id, channel_external_id, title, url, duration_s, format, language, inputs, output_dir, status]
+      properties:
+        video_id: { type: integer }
+        external_id: { type: string }
+        channel_external_id: { type: string }
+        title: { type: string }
+        url: { type: string }
+        duration_s: { type: [integer, "null"] }
+        format: { type: string }
+        language: { type: [string, "null"] }
+        inputs:
+          type: object
+          description: Local file paths in v1 (signed URLs for remote runners later), null when missing.
+          additionalProperties: { type: [string, "null"] }
+        output_dir: { type: string }
+        status: { type: string }
+    JobPayload:
+      type: object
+      required: [id, type, analyzer, version, status, params, attempt, max_video_height, data_root, runner_cache_dir, download_pause_seconds, items]
+      properties:
+        id: { type: integer }
+        type: { type: string }
+        analyzer: { type: string }
+        version: { type: string }
+        status: { type: string }
+        params: { type: object, additionalProperties: true }
+        attempt: { type: integer }
+        max_video_height: { type: integer }
+        data_root: { type: string }
+        runner_cache_dir: { type: string }
+        download_pause_seconds: { type: integer }
+        items: { type: array, items: { $ref: "#/components/schemas/JobPayloadItem" } }
+    JobDetail:
+      allOf:
+        - $ref: "#/components/schemas/JobSummary"
+        - type: object
+          required: [params, stage_timings, log_tail, items, payload]
+          properties:
+            params: { type: object, additionalProperties: true }
+            stage_timings: { type: array, items: { $ref: "#/components/schemas/StageTiming" } }
+            log_tail: { type: [string, "null"] }
+            items: { type: array, items: { $ref: "#/components/schemas/JobItemInfo" } }
+            payload: { $ref: "#/components/schemas/JobPayload" }
+    RunnerInfo:
+      type: object
+      required: [id, name, type, gpu, host, version, capabilities, info, online, last_heartbeat, current_job_id]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        type: { type: string, enum: [cpu, gpu] }
+        gpu: { type: [string, "null"] }
+        host: { type: [string, "null"] }
+        version: { type: [string, "null"] }
+        capabilities: { type: array, items: { type: string } }
+        info: { type: object, additionalProperties: true }
+        online: { type: boolean }
+        last_heartbeat: { type: [string, "null"] }
+        current_job_id: { type: [integer, "null"] }
+    AnalyzerInfo:
+      type: object
+      required: [name, version, ref, title, description, runner_type, inputs, output_format, applies_to, is_current]
+      properties:
+        name: { type: string }
+        version: { type: string }
+        ref: { type: string }
+        title: { type: string }
+        description: { type: string }
+        runner_type: { type: string, enum: [builtin, cpu, gpu] }
+        inputs: { type: array, items: { type: string } }
+        output_format: { type: string }
+        applies_to: { type: array, items: { type: string } }
+        is_current: { type: boolean }
+    CoverageCell:
+      type: object
+      required: [status, job_id]
+      properties:
+        status: { type: string, enum: [done, queued, running, failed, missing, n/a] }
+        job_id: { type: [integer, "null"] }
+    Coverage:
+      type: object
+      required: [analyzers, videos, lever_columns, total]
+      properties:
+        analyzers:
+          type: array
+          items:
+            type: object
+            required: [name, version, title, runner_type]
+            properties:
+              name: { type: string }
+              version: { type: string }
+              title: { type: string }
+              runner_type: { type: string }
+        videos:
+          type: array
+          items:
+            type: object
+            required: [video_id, title, channel_id, format, published_at, selection, cells, levers]
+            properties:
+              video_id: { type: integer }
+              title: { type: string }
+              channel_id: { type: integer }
+              format: { type: string }
+              published_at: { type: [string, "null"] }
+              selection: { type: string }
+              cells: { type: object, additionalProperties: { $ref: "#/components/schemas/CoverageCell" } }
+              levers:
+                type: object
+                additionalProperties:
+                  type: object
+                  required: [score, spread, flags]
+                  properties:
+                    score: { type: [number, "null"] }
+                    spread: { type: [number, "null"] }
+                    flags: { type: array, items: { type: string } }
+        lever_columns:
+          type: array
+          items:
+            type: object
+            required: [key, lever, method]
+            properties:
+              key: { type: string }
+              lever: { type: string }
+              method: { type: string }
+        total: { type: integer }
+    JobResponse:
+      type: object
+      required: [job]
+      properties:
+        job: { $ref: "#/components/schemas/JobSummary" }
+    OwnerSync:
+      type: object
+      required: [id, channel_id, mode, status, counts, unavailable, error, log, started_by, started_at, finished_at]
+      properties:
+        id: { type: integer }
+        channel_id: { type: integer }
+        mode: { type: string, enum: [full, new] }
+        status: { type: string, enum: [running, done, failed] }
+        counts: { type: object, additionalProperties: { type: integer } }
+        unavailable:
+          type: object
+          description: Metrics or reports the API refused, by report name
+          additionalProperties: { type: array, items: { type: string } }
+        error: { type: [string, "null"] }
+        log: { type: array, items: { type: string } }
+        started_by: { type: string }
+        started_at: { type: [string, "null"] }
+        finished_at: { type: [string, "null"] }
+    OwnerCredentialInfo:
+      type: object
+      required: [channel, status, status_detail, scopes, connected_by, connected_at, last_used_at, last_sync, last_finished_sync, synced_videos]
+      properties:
+        channel:
+          type: object
+          required: [id, title, handle, thumbnail_url]
+          properties:
+            id: { type: integer }
+            title: { type: string }
+            handle: { type: [string, "null"] }
+            thumbnail_url: { type: [string, "null"] }
+        status: { type: string, enum: [active, expired, revoked] }
+        status_detail: { type: [string, "null"] }
+        scopes: { type: array, items: { type: string } }
+        connected_by: { type: string }
+        connected_at: { type: [string, "null"] }
+        last_used_at: { type: [string, "null"] }
+        last_sync: { oneOf: [{ $ref: "#/components/schemas/OwnerSync" }, { type: "null" }] }
+        last_finished_sync: { oneOf: [{ $ref: "#/components/schemas/OwnerSync" }, { type: "null" }] }
+        synced_videos: { type: integer }
+    RetentionPointInfo:
+      type: object
+      required: [ratio, seconds, watch_ratio, relative]
+      properties:
+        ratio: { type: number }
+        seconds: { type: [number, "null"] }
+        watch_ratio: { type: [number, "null"] }
+        relative: { type: [number, "null"] }
+    Engagement:
+      type: object
+      required: [owned, duration_s, retention, lifetime, daily, breakdowns, tribe]
+      properties:
+        owned: { type: boolean }
+        duration_s: { type: [integer, "null"] }
+        retention:
+          type: object
+          required: [sync_id, versions, curves]
+          properties:
+            sync_id: { type: [integer, "null"] }
+            versions: { type: array, items: { type: integer } }
+            curves:
+              type: object
+              description: Keyed by audience type (ALL, ORGANIC, AD_INSTREAM, ...)
+              additionalProperties: { type: array, items: { $ref: "#/components/schemas/RetentionPointInfo" } }
+        lifetime: { type: [object, "null"], additionalProperties: true }
+        daily:
+          type: array
+          items:
+            type: object
+            required: [day]
+            properties:
+              day: { type: string }
+              views: { type: [integer, "null"] }
+              estimated_minutes_watched: { type: [number, "null"] }
+              average_view_duration: { type: [number, "null"] }
+              average_view_percentage: { type: [number, "null"] }
+              likes: { type: [integer, "null"] }
+              comments: { type: [integer, "null"] }
+              shares: { type: [integer, "null"] }
+              subscribers_gained: { type: [integer, "null"] }
+              subscribers_lost: { type: [integer, "null"] }
+        breakdowns:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: object
+              required: [key]
+              properties:
+                key: { type: string }
+              additionalProperties: true
+        tribe:
+          oneOf:
+            - type: "null"
+            - type: object
+              required: [t, engagement, networks, definition]
+              properties:
+                t: { type: array, items: { type: number } }
+                engagement: { type: array, items: { type: [number, "null"] } }
+                networks: { type: object, additionalProperties: { type: array, items: { type: [number, "null"] } } }
+                definition: { type: string }
+    StudySummary:
+      type: object
+      required: [id, slug, version, title, summary, status, locked_at, locked_by, members, last_result_at, analyzing]
+      properties:
+        id: { type: integer }
+        slug: { type: string }
+        version: { type: integer }
+        title: { type: string }
+        summary: { type: string }
+        status: { type: string, enum: [draft, locked, collecting, analyzed] }
+        locked_at: { type: [string, "null"] }
+        locked_by: { type: [string, "null"] }
+        members: { type: integer }
+        last_result_at: { type: [string, "null"] }
+        analyzing: { type: boolean }
+    StudyDetail:
+      allOf:
+        - $ref: "#/components/schemas/StudySummary"
+        - type: object
+          required: [methodology_md, params, measures, requires, module, locked_hash, drift, selection]
+          properties:
+            methodology_md: { type: string }
+            params: { type: object, additionalProperties: true }
+            measures: { type: array, items: { type: object, additionalProperties: true } }
+            requires: { type: array, items: { type: string } }
+            module: { type: string }
+            locked_hash: { type: [string, "null"] }
+            drift:
+              type: object
+              required: [changed, current_hash]
+              properties:
+                changed: { type: boolean }
+                current_hash: { type: [string, "null"] }
+            selection:
+              oneOf:
+                - type: "null"
+                - type: object
+                  required: [rules, stats, at]
+                  properties:
+                    rules: { type: string }
+                    stats: { type: object, additionalProperties: true }
+                    at: { type: string }
+    StudyMemberInfo:
+      type: object
+      required: [video_id, title, channel_id, role, group, reason, selection, outlier_score, duration_s, requirements, complete]
+      properties:
+        video_id: { type: integer }
+        title: { type: string }
+        channel_id: { type: integer }
+        role: { type: string }
+        group: { type: [string, "null"] }
+        reason: { type: [string, "null"] }
+        selection: { type: string }
+        outlier_score: { type: [number, "null"] }
+        duration_s: { type: [integer, "null"] }
+        requirements: { type: object, additionalProperties: { type: string } }
+        complete: { type: boolean }
+    StudyCompleteness:
+      type: object
+      required: [requirements, members, complete, missing_cells]
+      properties:
+        requirements: { type: array, items: { type: string } }
+        members: { type: array, items: { $ref: "#/components/schemas/StudyMemberInfo" } }
+        complete: { type: integer }
+        missing_cells: { type: integer }
+    StudyResultInfo:
+      type: object
+      required: [id, code_version, module_hash, n_members, computed_at, results, figures]
+      properties:
+        id: { type: integer }
+        code_version: { type: string }
+        module_hash: { type: [string, "null"] }
+        n_members: { type: [integer, "null"] }
+        computed_at: { type: [string, "null"] }
+        results: { type: object, additionalProperties: true }
+        figures: { type: array, items: { type: string } }
+    FormatProfile:
+      type: object
+      required: [count, recent_count, uploads_per_month, median_views, median_duration_s, hit_rate, flop_rate, like_rate, comment_rate]
+      properties:
+        count: { type: integer }
+        recent_count: { type: integer, description: Uploads inside the comparison window }
+        uploads_per_month: { type: number }
+        median_views: { type: [number, "null"] }
+        median_duration_s: { type: [number, "null"] }
+        hit_rate: { type: [number, "null"], description: Share of window uploads with outlier score >= 2 }
+        flop_rate: { type: [number, "null"], description: Share of window uploads with outlier score <= 0.5 }
+        like_rate: { type: [number, "null"], description: Median likes / views }
+        comment_rate: { type: [number, "null"], description: Median comments / views }
+    ChannelProfile:
+      type: object
+      required: [id, title, handle, thumbnail_url, owned, long, short, shorts_share, monthly, subscribers, videos]
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        handle: { type: [string, "null"] }
+        thumbnail_url: { type: [string, "null"] }
+        owned: { type: boolean }
+        long: { $ref: "#/components/schemas/FormatProfile" }
+        short: { $ref: "#/components/schemas/FormatProfile" }
+        shorts_share: { type: [number, "null"] }
+        monthly:
+          type: array
+          items:
+            type: object
+            required: [month, long, short, median_long_views]
+            properties:
+              month: { type: string }
+              long: { type: integer }
+              short: { type: integer }
+              median_long_views: { type: [number, "null"] }
+        subscribers:
+          type: array
+          items:
+            type: object
+            required: [captured_at, subscribers]
+            properties:
+              captured_at: { type: string }
+              subscribers: { type: integer }
+        videos:
+          type: array
+          items:
+            type: object
+            required: [id, title, published_at, format, views, outlier_score]
+            properties:
+              id: { type: integer }
+              title: { type: string }
+              published_at: { type: string }
+              format: { $ref: "#/components/schemas/VideoFormat" }
+              views: { type: [integer, "null"] }
+              outlier_score: { type: number }
+    Compare:
+      type: object
+      required: [months, channels]
+      properties:
+        months: { type: integer }
+        channels: { type: array, items: { $ref: "#/components/schemas/ChannelProfile" } }
+    ShortsList:
+      type: object
+      required: [videos, total]
+      properties:
+        videos:
+          type: array
+          items:
+            allOf:
+              - { $ref: "#/components/schemas/VideoSummary" }
+              - { type: object, required: [channel_title], properties: { channel_title: { type: string } } }
+        total: { type: integer }
+    Backup:
+      type: object
+      required: [name, bytes, created_at]
+      properties:
+        name: { type: string }
+        bytes: { type: integer }
+        created_at: { type: string }
+    LeversConfig:
+      type: object
+      required: [key_set, config, models, input_modes, rubric]
+      properties:
+        key_set: { type: boolean, description: Whether GEMINI_API_KEY is set. The key itself is never returned. }
+        config:
+          type: object
+          required: [model, input_mode, upload_height, upload_fps, runs, temperature, agentic, min_seconds_between_calls]
+          properties:
+            model: { type: string }
+            input_mode: { type: string, enum: [upload, youtube_url] }
+            upload_height: { type: integer }
+            upload_fps: { type: integer }
+            runs: { type: integer }
+            temperature: { type: number }
+            agentic: { type: boolean }
+            min_seconds_between_calls: { type: integer }
+        models:
+          type: array
+          items:
+            type: object
+            required: [id, title, price_per_mtok]
+            properties:
+              id: { type: string }
+              title: { type: string }
+              price_per_mtok: { type: array, items: { type: number }, description: "[input, output] USD per 1M tokens today" }
+        input_modes:
+          type: array
+          items:
+            type: object
+            required: [id, title, blinded]
+            properties:
+              id: { type: string }
+              title: { type: string }
+              blinded: { type: boolean }
+        rubric:
+          type: object
+          required: [version, hash, path]
+          properties:
+            version: { type: integer }
+            hash: { type: string }
+            path: { type: string }
+    LeverEstimate:
+      type: object
+      additionalProperties: true
+      properties:
+        model: { type: string }
+        input_mode: { type: string }
+        videos: { type: integer }
+        pairs: { type: integer }
+        already_scored: { type: integer }
+        video_seconds: { type: number }
+        calls: { type: integer }
+        runs_per_video: { type: integer }
+        input_tokens: { type: integer }
+        output_tokens: { type: integer }
+        cost_usd: { type: number }
+        assumptions: { type: string }
+    LeverEntry:
+      type: object
+      required: [score, spread, confidence, reason, evidence, flags, subscores]
+      properties:
+        score: { type: [number, "null"] }
+        spread: { type: [number, "null"] }
+        confidence: { type: [string, "null"] }
+        reason: { type: [string, "null"] }
+        evidence:
+          type: array
+          items:
+            type: object
+            required: [t_start, t_end, note]
+            properties:
+              t_start: { type: number }
+              t_end: { type: number }
+              note: { type: string }
+        flags: { type: array, items: { type: string } }
+        subscores: { type: object, additionalProperties: { type: [number, "null"] } }
+    VideoLevers:
+      type: object
+      required: [scorings, moments, probe]
+      properties:
+        scorings:
+          type: array
+          items:
+            type: object
+            required: [method, analyzer_version, rubric_version, rubric_hash, model, input_mode, job_id, created_at, aggregate, runs]
+            properties:
+              method: { type: string }
+              analyzer_version: { type: string }
+              rubric_version: { type: [integer, "null"] }
+              rubric_hash: { type: [string, "null"] }
+              model: { type: [string, "null"] }
+              input_mode: { type: [string, "null"] }
+              job_id: { type: [integer, "null"] }
+              created_at: { type: string }
+              aggregate: { type: object, additionalProperties: { $ref: "#/components/schemas/LeverEntry" } }
+              runs:
+                type: object
+                additionalProperties: { type: object, additionalProperties: { $ref: "#/components/schemas/LeverEntry" } }
+        moments:
+          type: array
+          items:
+            type: object
+            required: [kind, lever, t_start, t_end, intensity, label, run_idx]
+            properties:
+              kind: { type: string, enum: [displayed, elicited, evidence] }
+              lever: { type: [string, "null"] }
+              t_start: { type: number }
+              t_end: { type: [number, "null"] }
+              intensity: { type: [integer, "null"] }
+              label: { type: [string, "null"] }
+              run_idx: { type: [integer, "null"] }
+        probe:
+          oneOf:
+            - type: "null"
+            - $ref: "#/components/schemas/LeverProbe"
+    LeverProbe:
+      type: object
+      required: [identified, creator_guess, title_guess, confidence, contaminated, model, input_mode]
+      properties:
+        identified: { type: boolean }
+        creator_guess: { type: [string, "null"] }
+        title_guess: { type: [string, "null"] }
+        confidence: { type: [string, "null"] }
+        contaminated: { type: boolean }
+        model: { type: [string, "null"] }
+        input_mode: { type: [string, "null"] }
+    LeverPairwiseRow:
+      type: object
+      required: [video_a, video_b, order, lever, winner_video_id, confidence, reason, pair_key, study_id, model, input_mode, created_at]
+      properties:
+        video_a: { type: integer }
+        video_b: { type: integer }
+        order: { type: string }
+        lever: { type: string }
+        winner_video_id: { type: [integer, "null"] }
+        confidence: { type: [string, "null"] }
+        reason: { type: [string, "null"] }
+        pair_key: { type: [string, "null"] }
+        study_id: { type: [integer, "null"] }
+        model: { type: [string, "null"] }
+        input_mode: { type: [string, "null"] }
+        created_at: { type: string }
+    LeverJobStart:
+      type: object
+      required: [job, estimate]
+      properties:
+        job: { oneOf: [{ $ref: "#/components/schemas/JobSummary" }, { type: "null" }] }
+        estimate: { $ref: "#/components/schemas/LeverEstimate" }
+        dropped_pairs: { type: integer }
+  parameters:
+    StudyId: { name: study_id, in: path, required: true, schema: { type: integer } }
+    JobId: { name: job_id, in: path, required: true, schema: { type: integer } }
+    RunnerIdHeader: { name: X-Runner-Id, in: header, schema: { type: string }, description: The calling runner's id; mismatches get 409 }
+    ChannelId: { name: channel_id, in: path, required: true, schema: { type: integer } }
+    VideoId: { name: video_id, in: path, required: true, schema: { type: integer } }
+    VideoListQuery:
+      name: q
+      in: query
+      schema: { type: string }
+      description: Title search
+    VideoFormatQuery: { name: format, in: query, schema: { type: string }, description: "Comma-separated formats" }
+    VideoSort:
+      name: sort
+      in: query
+      schema: { type: string, enum: [published_at, views, outlier_score, duration_s, title, likes, comments] }
+    VideoOrder: { name: order, in: query, schema: { type: string, enum: [asc, desc] } }
+    Limit: { name: limit, in: query, schema: { type: string }, description: 'Number, or "all" (max 5000)' }
+    Offset: { name: offset, in: query, schema: { type: integer } }
+    MinOutlier: { name: min_outlier, in: query, schema: { type: number } }
+    MaxOutlier: { name: max_outlier, in: query, schema: { type: number } }
+    IncludeGone: { name: include_gone, in: query, schema: { type: string, enum: ["1"] } }
+    Selection: { name: selection, in: query, schema: { type: string, enum: [discovered, tracked] } }
+  responses:
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+paths:
+  /api/health:
+    get:
+      operationId: health
+      security: []
+      responses:
+        "200":
+          description: Alive
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, time]
+                properties:
+                  ok: { type: boolean }
+                  time: { type: string }
+  /api/openapi.json:
+    get:
+      operationId: openapi
+      security: []
+      responses:
+        "200": { description: This document as JSON }
+  /api/auth/login:
+    post:
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string }
+                remember: { type: boolean }
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+        "401": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /api/auth/logout:
+    post:
+      operationId: logout
+      security: []
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ok" }
+  /api/auth/me:
+    get:
+      operationId: me
+      security: []
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+        "401": { $ref: "#/components/responses/Error" }
+  /api/auth/password:
+    post:
+      operationId: changePassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, new_password]
+              properties:
+                current_password: { type: string }
+                new_password: { type: string, minLength: 10 }
+      responses:
+        "200":
+          description: Changed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ok" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+  /api/dashboard:
+    get:
+      operationId: dashboard
+      parameters:
+        - { name: refresh, in: query, schema: { type: string, enum: ["1"] } }
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Dashboard" }
+  /api/settings:
+    get:
+      operationId: getSettings
+      responses:
+        "200":
+          description: Settings (secrets only as set / not set)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Settings" }
+  /api/settings/schedules:
+    put:
+      operationId: putSchedules
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: { type: integer }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [schedules]
+                properties:
+                  schedules: { $ref: "#/components/schemas/Schedules" }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/channels:
+    get:
+      operationId: listChannels
+      responses:
+        "200":
+          description: All channels with latest stats
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [channels]
+                properties:
+                  channels: { type: array, items: { $ref: "#/components/schemas/ChannelSummary" } }
+    post:
+      operationId: addChannel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [channel]
+              properties:
+                channel: { type: string, description: "URL, @handle or UC... id" }
+                is_mine: { type: boolean }
+                follow: { type: boolean }
+                tags: { type: array, items: { type: string } }
+                list_uploads: { type: boolean, description: List all uploads (metadata only). Default true. }
+      responses:
+        "200": &channelCreated
+          description: Channel (already existed / created). Uploads are listed in the background; nothing is downloaded.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [channel, created]
+                properties:
+                  channel: { $ref: "#/components/schemas/ChannelSummary" }
+                  created: { type: boolean }
+        "201": *channelCreated
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+        "502": { $ref: "#/components/responses/Error" }
+  /api/channels/{channel_id}:
+    parameters: [{ $ref: "#/components/parameters/ChannelId" }]
+    get:
+      operationId: getChannel
+      responses:
+        "200":
+          description: Channel
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChannelResponse" }
+        "404": { $ref: "#/components/responses/Error" }
+    patch:
+      operationId: updateChannel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                followed: { type: boolean }
+                auto_track_new: { type: boolean }
+                is_mine: { type: boolean }
+                tags: { type: array, items: { type: string } }
+                notes: { type: [string, "null"] }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChannelResponse" }
+    delete:
+      operationId: deleteChannel
+      parameters:
+        - { name: delete_files, in: query, schema: { type: string, enum: ["1"] } }
+      responses:
+        "200":
+          description: Deleted with all its videos and history
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ok" }
+  /api/channels/{channel_id}/snapshots:
+    parameters: [{ $ref: "#/components/parameters/ChannelId" }]
+    get:
+      operationId: channelSnapshots
+      responses:
+        "200":
+          description: Subscriber/view history
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [snapshots]
+                properties:
+                  snapshots: { type: array, items: { $ref: "#/components/schemas/ChannelSnapshot" } }
+  /api/channels/{channel_id}/videos:
+    parameters: [{ $ref: "#/components/parameters/ChannelId" }]
+    get:
+      operationId: channelVideos
+      parameters: &videoListParams
+        - { $ref: "#/components/parameters/VideoListQuery" }
+        - { $ref: "#/components/parameters/VideoFormatQuery" }
+        - { $ref: "#/components/parameters/VideoSort" }
+        - { $ref: "#/components/parameters/VideoOrder" }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+        - { $ref: "#/components/parameters/MinOutlier" }
+        - { $ref: "#/components/parameters/MaxOutlier" }
+        - { $ref: "#/components/parameters/IncludeGone" }
+        - { $ref: "#/components/parameters/Selection" }
+      responses:
+        "200":
+          description: Videos
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VideoList" }
+  /api/videos:
+    get:
+      operationId: listVideos
+      parameters:
+        - { name: channel_id, in: query, schema: { type: string }, description: "Comma-separated channel ids" }
+        - { name: is_mine, in: query, schema: { type: string, enum: ["1"] } }
+        - { $ref: "#/components/parameters/VideoListQuery" }
+        - { $ref: "#/components/parameters/VideoFormatQuery" }
+        - { $ref: "#/components/parameters/VideoSort" }
+        - { $ref: "#/components/parameters/VideoOrder" }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+        - { $ref: "#/components/parameters/MinOutlier" }
+        - { $ref: "#/components/parameters/MaxOutlier" }
+        - { $ref: "#/components/parameters/IncludeGone" }
+        - { $ref: "#/components/parameters/Selection" }
+      responses:
+        "200":
+          description: Videos
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VideoList" }
+  /api/videos/{video_id}:
+    parameters: [{ $ref: "#/components/parameters/VideoId" }]
+    get:
+      operationId: getVideo
+      responses:
+        "200":
+          description: Video with history, files and analyzer results
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VideoDetail" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/videos/{video_id}/refresh:
+    parameters: [{ $ref: "#/components/parameters/VideoId" }]
+    post:
+      operationId: refreshVideo
+      responses:
+        "200":
+          description: Refreshed metadata and stats (1 quota unit)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VideoDetail" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/videos/{video_id}/thumbnail:
+    parameters: [{ $ref: "#/components/parameters/VideoId" }]
+    get:
+      operationId: videoThumbnail
+      responses:
+        "200": { description: JPEG }
+        "302": { description: Redirect to YouTube's copy until it is downloaded }
+  /api/assets/{asset_id}/file:
+    parameters: [{ name: asset_id, in: path, required: true, schema: { type: integer } }]
+    get:
+      operationId: assetFile
+      description: The file, with HTTP Range support.
+      responses:
+        "200": { description: File }
+        "206": { description: Partial content }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/channels/{channel_id}/refresh:
+    parameters: [{ $ref: "#/components/parameters/ChannelId" }]
+    post:
+      operationId: refreshChannel
+      description: Re-list all uploads in the background (refreshes discovered videos). Skipped if listed in the last 6 hours unless force=1.
+      parameters:
+        - { name: force, in: query, schema: { type: string, enum: ["1"] } }
+      responses:
+        "200":
+          description: Started, already running, or still fresh
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [started, already_running, fresh]
+                properties:
+                  started: { type: boolean }
+                  already_running: { type: boolean }
+                  fresh: { type: boolean }
+  /api/discover/search:
+    get:
+      operationId: discoverSearch
+      description: Channel search. A name uses search.list (100 quota units); a URL, @handle or UC id resolves directly (1-2 units).
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, maximum: 25 } }
+      responses:
+        "200":
+          description: Matching channels
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [channels]
+                properties:
+                  channels:
+                    type: array
+                    items: { $ref: "#/components/schemas/ChannelCard" }
+        "429": { $ref: "#/components/responses/Error" }
+  /api/discover/channels/{channel_id}/videos:
+    parameters: [{ $ref: "#/components/parameters/ChannelId" }]
+    get:
+      operationId: discoverChannelVideos
+      parameters:
+        - { name: timeframe, in: query, schema: { type: string, enum: [7d, 30d, 90d, 1y, all, custom] } }
+        - { name: since, in: query, schema: { type: string, format: date } }
+        - { name: until, in: query, schema: { type: string, format: date } }
+        - { name: rank, in: query, schema: { type: string, enum: [outlier, views] } }
+        - { name: pick, in: query, schema: { type: string, enum: [top, bottom, all] } }
+        - { name: n, in: query, schema: { type: integer } }
+        - { name: formats, in: query, schema: { type: string }, description: "Comma-separated: long,short" }
+        - { name: include_live, in: query, schema: { type: string, enum: ["1"] } }
+        - { name: min_duration, in: query, schema: { type: integer } }
+        - { $ref: "#/components/parameters/Selection" }
+        - { name: study_id, in: query, schema: { type: integer }, description: Show only the videos this study's criteria would include }
+      responses:
+        "200":
+          description: Filtered uploads
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DiscoverVideos" }
+  /api/discover/pull:
+    post:
+      operationId: discoverPull
+      description: Mark videos tracked, snapshot their stats and queue download/captions jobs (1080p cap).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [video_ids]
+              properties:
+                video_ids: { type: array, items: { type: integer }, maxItems: 2000 }
+                study_id: { type: [integer, "null"], description: Also add the videos to this study }
+      responses:
+        "200":
+          description: Pulled
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PullResult" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/runners/register:
+    post:
+      operationId: registerRunner
+      security: [{ runner: [] }]
+      description: Register (or re-register) a runner. Jobs it held before a restart are requeued.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, type, capabilities]
+              properties:
+                name: { type: string }
+                type: { type: string, enum: [cpu, gpu] }
+                capabilities: { type: array, items: { type: string }, description: Job types this runner can run }
+                gpu: { type: [string, "null"] }
+                host: { type: [string, "null"] }
+                version: { type: [string, "null"] }
+                info: { type: object, additionalProperties: true }
+      responses:
+        "200":
+          description: Registered
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [runner]
+                properties:
+                  runner: { $ref: "#/components/schemas/RunnerInfo" }
+        "401": { $ref: "#/components/responses/Error" }
+  /api/runners/{runner_id}/heartbeat:
+    parameters: [{ name: runner_id, in: path, required: true, schema: { type: integer } }]
+    post:
+      operationId: runnerHeartbeat
+      security: [{ runner: [] }]
+      description: Liveness. A job whose runner is silent for 10 minutes (a setting) is requeued.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                info: { type: object, additionalProperties: true }
+      responses:
+        "200":
+          description: Alive. Lists this runner's jobs that were cancelled, so it can stop them.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, cancelled_jobs]
+                properties:
+                  ok: { type: boolean }
+                  cancelled_jobs: { type: array, items: { type: integer } }
+  /api/jobs/claim:
+    post:
+      operationId: claimJob
+      security: [{ runner: [] }]
+      description: Atomically claim the next ready job of an advertised type.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [runner_id]
+              properties:
+                runner_id: { type: integer }
+                types: { type: array, items: { type: string } }
+      responses:
+        "200":
+          description: The claimed job, or null when there is nothing to do
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job]
+                properties:
+                  job:
+                    oneOf:
+                      - $ref: "#/components/schemas/JobPayload"
+                      - type: "null"
+  /api/jobs/{job_id}/progress:
+    parameters: [{ $ref: "#/components/parameters/JobId" }, { $ref: "#/components/parameters/RunnerIdHeader" }]
+    post:
+      operationId: jobProgress
+      security: [{ runner: [] }]
+      description: Exact live state, every few seconds. Optional `log` text is appended to the job log.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/JobProgress"
+                - type: object
+                  properties:
+                    log: { type: string }
+      responses:
+        "200":
+          description: Stored. cancel=true means stop working on this job.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [cancel]
+                properties:
+                  cancel: { type: boolean }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/jobs/{job_id}/items/{video_id}/result:
+    parameters:
+      - { $ref: "#/components/parameters/JobId" }
+      - { $ref: "#/components/parameters/VideoId" }
+      - { $ref: "#/components/parameters/RunnerIdHeader" }
+    post:
+      operationId: jobItemResult
+      security: [{ runner: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string, enum: [done, failed] }
+                error: { type: [string, "null"] }
+                summary: { type: object, additionalProperties: true }
+                output_path: { type: [string, "null"] }
+                assets:
+                  type: array
+                  items:
+                    type: object
+                    required: [kind, path]
+                    properties:
+                      kind: { type: string, enum: [video, audio, thumbnail, captions, captions_text, info] }
+                      path: { type: string, description: Must be inside the data folder }
+                      variant: { type: string }
+                      bytes: { type: integer }
+                      sha256: { type: string }
+                      width: { type: integer }
+                      height: { type: integer }
+                      codec: { type: string }
+                      meta: { type: object, additionalProperties: true }
+                video_updates:
+                  type: object
+                  properties:
+                    format: { type: string, enum: [live, premiere] }
+      responses:
+        "200":
+          description: Stored
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ok" }
+        "400": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/jobs/{job_id}/complete:
+    parameters: [{ $ref: "#/components/parameters/JobId" }, { $ref: "#/components/parameters/RunnerIdHeader" }]
+    post:
+      operationId: completeJob
+      security: [{ runner: [] }]
+      responses:
+        "200":
+          description: Finished
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JobResponse" }
+  /api/jobs/{job_id}/fail:
+    parameters: [{ $ref: "#/components/parameters/JobId" }, { $ref: "#/components/parameters/RunnerIdHeader" }]
+    post:
+      operationId: failJob
+      security: [{ runner: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [error]
+              properties:
+                error: { type: string }
+                log_tail: { type: string }
+                retry: { type: boolean, description: Requeue if attempts remain (transient errors) }
+      responses:
+        "200":
+          description: Failed (or requeued)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JobResponse" }
+  /api/jobs/{job_id}/log:
+    parameters: [{ $ref: "#/components/parameters/JobId" }]
+    get:
+      operationId: jobLog
+      parameters:
+        - { name: tail, in: query, schema: { type: integer, maximum: 5000 } }
+      responses:
+        "200":
+          description: The last lines of the job log
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [log]
+                properties:
+                  log: { type: string }
+    post:
+      operationId: appendJobLog
+      security: [{ runner: [] }]
+      parameters: [{ $ref: "#/components/parameters/RunnerIdHeader" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string }
+      responses:
+        "200":
+          description: Appended
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ok" }
+  /api/jobs/{job_id}:
+    parameters: [{ $ref: "#/components/parameters/JobId" }]
+    get:
+      operationId: getJob
+      security: [{ session: [] }, { runner: [] }]
+      description: Job detail, including the runner payload (params, per-video local input paths and output dir).
+      responses:
+        "200":
+          description: Job
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job]
+                properties:
+                  job: { $ref: "#/components/schemas/JobDetail" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/jobs/{job_id}/cancel:
+    parameters: [{ $ref: "#/components/parameters/JobId" }]
+    post:
+      operationId: cancelJob
+      responses:
+        "200":
+          description: Cancelled (and jobs waiting on it)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JobResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/jobs/{job_id}/retry:
+    parameters: [{ $ref: "#/components/parameters/JobId" }]
+    post:
+      operationId: retryJob
+      description: A new job for this job's videos that did not finish.
+      responses:
+        "200":
+          description: The new job
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JobResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/jobs:
+    get:
+      operationId: listJobs
+      parameters:
+        - { name: status, in: query, schema: { type: string }, description: Comma-separated statuses }
+        - { name: type, in: query, schema: { type: string }, description: Comma-separated job types }
+        - { name: video_id, in: query, schema: { type: integer } }
+        - { name: limit, in: query, schema: { type: integer, maximum: 500 } }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: Jobs, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [jobs, total]
+                properties:
+                  jobs: { type: array, items: { $ref: "#/components/schemas/JobSummary" } }
+                  total: { type: integer }
+    post:
+      operationId: createJobs
+      description: Issue jobs. Videos that already have the result (unless force) or an active job are skipped; a download is chained first when an analyzer needs the video file.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                analyzer: { type: string }
+                video_ids: { type: array, items: { type: integer } }
+                requests:
+                  type: array
+                  items:
+                    type: object
+                    required: [analyzer, video_ids]
+                    properties:
+                      analyzer: { type: string }
+                      video_ids: { type: array, items: { type: integer } }
+                      params: { type: object, additionalProperties: true }
+                params: { type: object, additionalProperties: true }
+                priority: { type: integer }
+                force: { type: boolean }
+      responses:
+        "200":
+          description: Issued jobs (including chained downloads) and analyzers with nothing to do
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [jobs, skipped]
+                properties:
+                  jobs: { type: array, items: { $ref: "#/components/schemas/JobSummary" } }
+                  skipped: { type: array, items: { type: string } }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/jobs/stream:
+    get:
+      operationId: jobsStream
+      description: "Server-sent events (event: jobs) with active and recently finished jobs whenever they change."
+      parameters:
+        - { name: once, in: query, schema: { type: string, enum: ["1"] } }
+      responses:
+        "200":
+          description: text/event-stream
+          content:
+            text/event-stream:
+              schema: { type: string }
+  /api/runners:
+    get:
+      operationId: listRunners
+      responses:
+        "200":
+          description: Registered runners
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [runners]
+                properties:
+                  runners: { type: array, items: { $ref: "#/components/schemas/RunnerInfo" } }
+  /api/analyzers:
+    get:
+      operationId: listAnalyzers
+      responses:
+        "200":
+          description: Analyzer registry (every version)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [analyzers]
+                properties:
+                  analyzers: { type: array, items: { $ref: "#/components/schemas/AnalyzerInfo" } }
+  /api/coverage:
+    get:
+      operationId: coverage
+      parameters:
+        - { name: channel_id, in: query, schema: { type: string } }
+        - { name: selection, in: query, schema: { type: string, enum: [tracked, discovered, all] } }
+        - { name: format, in: query, schema: { type: string } }
+        - { name: video_ids, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, maximum: 2000 } }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: Videos x analyzers status grid
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Coverage" }
+  /api/youtube/owner:
+    get:
+      operationId: ownerStatus
+      responses:
+        "200":
+          description: OAuth configuration and connected channels (never any token)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [configured, redirect_uri, redirect_uri_problem, callback_path, scopes, credentials]
+                properties:
+                  configured: { type: boolean }
+                  redirect_uri: { type: [string, "null"], description: GOOGLE_OAUTH_REDIRECT_URI (not secret) }
+                  redirect_uri_problem: { type: [string, "null"] }
+                  callback_path: { type: string }
+                  scopes: { type: array, items: { type: string } }
+                  credentials: { type: array, items: { $ref: "#/components/schemas/OwnerCredentialInfo" } }
+  /api/youtube/oauth/start:
+    post:
+      operationId: ownerOauthStart
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                return_to: { type: string, description: "Path on this site to come back to (default /settings)" }
+      responses:
+        "200":
+          description: Google's consent URL (single-use state, PKCE)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [auth_url]
+                properties:
+                  auth_url: { type: string }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/youtube/oauth/callback:
+    get:
+      operationId: ownerOauthCallback
+      security: []
+      description: Google redirects here. Checked by the single-use state; redirects back with ?youtube=connected or ?youtube=error.
+      parameters:
+        - { name: state, in: query, required: true, schema: { type: string } }
+        - { name: code, in: query, schema: { type: string } }
+        - { name: error, in: query, schema: { type: string } }
+      responses:
+        "302": { description: Back to the app }
+        "400": { description: Unknown or expired state }
+  /api/youtube/owner/{channel_id}/sync:
+    parameters: [{ $ref: "#/components/parameters/ChannelId" }]
+    post:
+      operationId: ownerSyncStart
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mode: { type: string, enum: [full, new], description: "full = re-pull everything (new retention version); new = only uploads since the last sync and never-synced ones" }
+      responses:
+        "200":
+          description: Started in the background
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sync]
+                properties:
+                  sync: { $ref: "#/components/schemas/OwnerSync" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/youtube/owner/syncs/{sync_id}:
+    parameters: [{ name: sync_id, in: path, required: true, schema: { type: integer } }]
+    get:
+      operationId: ownerSyncGet
+      responses:
+        "200":
+          description: Sync progress and counts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sync]
+                properties:
+                  sync: { $ref: "#/components/schemas/OwnerSync" }
+  /api/youtube/owner/{channel_id}:
+    parameters: [{ $ref: "#/components/parameters/ChannelId" }]
+    delete:
+      operationId: ownerDisconnect
+      description: Revoke the grant at Google and forget the token.
+      responses:
+        "200":
+          description: Disconnected
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ok" }
+  /api/videos/{video_id}/engagement:
+    parameters: [{ $ref: "#/components/parameters/VideoId" }]
+    get:
+      operationId: videoEngagement
+      parameters:
+        - { name: sync_id, in: query, schema: { type: integer }, description: Retention snapshot version (default latest) }
+      responses:
+        "200":
+          description: Owner analytics for the video, with the TRIBE engagement curve when available
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Engagement" }
+  /api/videos/{video_id}/heatmap:
+    parameters: [{ $ref: "#/components/parameters/VideoId" }]
+    get:
+      operationId: videoHeatmap
+      description: Public 'Most replayed' heatmap (yt-dlp). Stored apart from the owner's real retention curves.
+      parameters:
+        - { name: capture_id, in: query, schema: { type: integer }, description: A specific capture (default latest with points) }
+      responses:
+        "200":
+          description: Heatmap and chapters for one capture, plus the list of captures
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [captures, capture_id, duration_s, points, chapters]
+                properties:
+                  captures:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, captured_at, source, heatmap_points, chapter_count, snapshot]
+                      properties:
+                        id: { type: integer }
+                        captured_at: { type: [string, "null"] }
+                        source: { type: string, enum: [download, heatmap] }
+                        heatmap_points: { type: integer }
+                        chapter_count: { type: integer }
+                        snapshot: { type: object, additionalProperties: true }
+                  capture_id: { type: [integer, "null"] }
+                  duration_s: { type: [integer, "null"] }
+                  points:
+                    type: array
+                    items:
+                      type: object
+                      required: [start_s, end_s, value]
+                      properties:
+                        start_s: { type: number }
+                        end_s: { type: number }
+                        value: { type: number }
+                  chapters:
+                    type: array
+                    items:
+                      type: object
+                      required: [start_s, end_s, title]
+                      properties:
+                        start_s: { type: number }
+                        end_s: { type: [number, "null"] }
+                        title: { type: string }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/brain/assets/{name}:
+    parameters: [{ name: name, in: path, required: true, schema: { type: string, enum: [mesh.json, mesh.bin, atlas.json] } }]
+    get:
+      operationId: brainAsset
+      description: fsaverage5 inflated mesh (mesh.json describes the arrays in mesh.bin) and the HCP-MMP1 atlas, exported by the TRIBE runner.
+      responses:
+        "200": { description: The file }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/videos/{video_id}/brain:
+    parameters: [{ $ref: "#/components/parameters/VideoId" }]
+    get:
+      operationId: videoBrain
+      parameters:
+        - { name: analyzer, in: query, schema: { type: string, enum: [tribe_video, tribe_title] } }
+      responses:
+        "200":
+          description: Brain player metadata for the video's TRIBE result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [video_id, analyzer, result_id, n_timesteps, n_vertices, tr_s, start_s, hrf_offset_s, scale, networks, peaks, frames_url, max_frames_per_request]
+                properties:
+                  video_id: { type: integer }
+                  analyzer: { type: string }
+                  result_id: { type: integer }
+                  n_timesteps: { type: integer }
+                  n_vertices: { type: integer }
+                  tr_s: { type: number }
+                  start_s: { type: array, items: { type: number } }
+                  hrf_offset_s: { type: [number, "null"] }
+                  scale:
+                    type: object
+                    description: "uint8 code 0 = no prediction; 1..255 = lo..hi linearly; 128 = 0"
+                    required: [version, lo, hi, zero_code, nan_code, levels]
+                    properties:
+                      version: { type: integer }
+                      lo: { type: number }
+                      hi: { type: number }
+                      zero_code: { type: integer }
+                      nan_code: { type: integer }
+                      levels: { type: integer }
+                  networks:
+                    oneOf:
+                      - type: "null"
+                      - type: object
+                        required: [t, networks]
+                        properties:
+                          t: { type: array, items: { type: number } }
+                          networks: { type: object, additionalProperties: { type: array, items: { type: [number, "null"] } } }
+                  peaks:
+                    type: object
+                    additionalProperties:
+                      type: array
+                      items:
+                        type: object
+                        required: [t, value]
+                        properties:
+                          t: { type: number }
+                          value: { type: number }
+                  frames_url: { type: string }
+                  max_frames_per_request: { type: integer }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/videos/{video_id}/brain/frames:
+    parameters: [{ $ref: "#/components/parameters/VideoId" }]
+    get:
+      operationId: videoBrainFrames
+      description: "uint8 frames, count x n_vertices row-major (left hemisphere then right). Headers X-Frame-Start, X-Frame-Count, X-Vertices."
+      parameters:
+        - { name: analyzer, in: query, schema: { type: string } }
+        - { name: start, in: query, schema: { type: integer } }
+        - { name: count, in: query, schema: { type: integer, maximum: 600 } }
+      responses:
+        "200":
+          description: Binary frames
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/studies:
+    get:
+      operationId: listStudies
+      responses:
+        "200":
+          description: Every study and version
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [studies]
+                properties:
+                  studies: { type: array, items: { $ref: "#/components/schemas/StudySummary" } }
+  /api/studies/{study_id}:
+    parameters: [{ $ref: "#/components/parameters/StudyId" }]
+    get:
+      operationId: getStudy
+      responses:
+        "200":
+          description: Study with methodology, completeness and recent results
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [study, completeness, results]
+                properties:
+                  study: { $ref: "#/components/schemas/StudyDetail" }
+                  completeness: { $ref: "#/components/schemas/StudyCompleteness" }
+                  results: { type: array, items: { $ref: "#/components/schemas/StudyResultInfo" } }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/studies/{study_id}/select:
+    parameters: [{ $ref: "#/components/parameters/StudyId" }]
+    post:
+      operationId: selectStudyMembers
+      description: Run the study's criteria and replace its members (manual members are kept).
+      responses:
+        "200":
+          description: Selection
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [members, rules, stats]
+                properties:
+                  members: { type: integer }
+                  rules: { type: string }
+                  stats: { type: object, additionalProperties: true }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/studies/{study_id}/lock:
+    parameters: [{ $ref: "#/components/parameters/StudyId" }]
+    post:
+      operationId: lockStudy
+      description: Freeze methodology, criteria and measures; store the module's source hash.
+      responses:
+        "200":
+          description: Locked
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [study]
+                properties:
+                  study: { $ref: "#/components/schemas/StudySummary" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/studies/{study_id}/new-version:
+    parameters: [{ $ref: "#/components/parameters/StudyId" }]
+    post:
+      operationId: newStudyVersion
+      responses:
+        "200":
+          description: The new draft version
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [study]
+                properties:
+                  study: { $ref: "#/components/schemas/StudySummary" }
+  /api/studies/{study_id}/fill-gaps:
+    parameters: [{ $ref: "#/components/parameters/StudyId" }]
+    post:
+      operationId: fillStudyGaps
+      description: Pull discovered members and issue jobs for every missing requirement.
+      responses:
+        "200":
+          description: What was issued
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [pulled, jobs, nothing_to_do]
+                properties:
+                  pulled: { type: integer }
+                  jobs: { type: array, items: { type: integer } }
+                  nothing_to_do: { type: array, items: { type: string } }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/studies/{study_id}/analyze:
+    parameters: [{ $ref: "#/components/parameters/StudyId" }]
+    post:
+      operationId: analyzeStudy
+      description: Run the study's pre-registered analysis in the background.
+      responses:
+        "200":
+          description: Started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [study, started]
+                properties:
+                  study: { $ref: "#/components/schemas/StudySummary" }
+                  started: { type: boolean }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/studies/{study_id}/members.csv:
+    parameters: [{ $ref: "#/components/parameters/StudyId" }]
+    get:
+      operationId: studyMembersCsv
+      responses:
+        "200": { description: CSV, content: { text/csv: { schema: { type: string } } } }
+  /api/studies/{study_id}/members.parquet:
+    parameters: [{ $ref: "#/components/parameters/StudyId" }]
+    get:
+      operationId: studyMembersParquet
+      responses:
+        "200": { description: Parquet, content: { application/octet-stream: { schema: { type: string, format: binary } } } }
+  /api/studies/{study_id}/figures/{name}:
+    parameters: [{ $ref: "#/components/parameters/StudyId" }, { name: name, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: studyFigure
+      responses:
+        "200": { description: PNG }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/compare:
+    get:
+      operationId: compareChannels
+      parameters:
+        - { name: channel_ids, in: query, required: true, schema: { type: string }, description: "Comma-separated channel ids (1 to 8)" }
+        - { name: months, in: query, schema: { type: integer }, description: Window for the rate statistics (default 12) }
+      responses:
+        "200":
+          description: One profile per channel, long-form and Shorts separately
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Compare" }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/shorts:
+    get:
+      operationId: listShorts
+      parameters:
+        - { name: channel_id, in: query, schema: { type: string }, description: Comma-separated channel ids }
+        - { name: sort, in: query, schema: { type: string, enum: [published_at, views, outlier_score] } }
+        - { name: limit, in: query, schema: { type: integer } }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: Shorts, scored against each channel's Shorts baseline
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShortsList" }
+  /api/exports/{kind}.{fmt}:
+    parameters:
+      - { name: kind, in: path, required: true, schema: { type: string, enum: [videos, video_snapshots, channel_snapshots, analyzer] } }
+      - { name: fmt, in: path, required: true, schema: { type: string, enum: [csv, parquet] } }
+    get:
+      operationId: exportData
+      parameters:
+        - { name: channel_id, in: query, schema: { type: string }, description: Comma-separated channel ids }
+        - { $ref: "#/components/parameters/Selection" }
+        - { name: analyzer, in: query, schema: { type: string }, description: "name or name@version (kind=analyzer)" }
+      responses:
+        "200":
+          description: A CSV or Parquet download
+          content:
+            text/csv: { schema: { type: string } }
+            application/octet-stream: { schema: { type: string, format: binary } }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/backups:
+    get:
+      operationId: listBackups
+      responses:
+        "200":
+          description: Database backups in DATA_ROOT/backups, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [backups]
+                properties:
+                  backups: { type: array, items: { $ref: "#/components/schemas/Backup" } }
+    post:
+      operationId: createBackup
+      description: Back up the SQLite database now (online backup API), then prune to backups_to_keep.
+      responses:
+        "200":
+          description: The new backup
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [backup, backups]
+                properties:
+                  backup: { type: object, required: [name, bytes], properties: { name: { type: string }, bytes: { type: integer } } }
+                  backups: { type: array, items: { $ref: "#/components/schemas/Backup" } }
+  /api/backups/{name}:
+    parameters: [{ name: name, in: path, required: true, schema: { type: string } }]
+    get:
+      operationId: downloadBackup
+      responses:
+        "200": { description: SQLite file, content: { application/octet-stream: { schema: { type: string, format: binary } } } }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/levers/config:
+    get:
+      operationId: leversConfig
+      responses:
+        "200": { description: Lever settings, content: { application/json: { schema: { $ref: "#/components/schemas/LeversConfig" } } } }
+    put:
+      operationId: updateLeversConfig
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, additionalProperties: true } } }
+      responses:
+        "200": { description: Saved, content: { application/json: { schema: { $ref: "#/components/schemas/LeversConfig" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/levers/test:
+    post:
+      operationId: testLeversConnection
+      description: One metadata call checking the key and the model id. No video is sent.
+      requestBody:
+        content: { application/json: { schema: { type: object, properties: { model: { type: string } } } } }
+      responses:
+        "200":
+          description: Result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, model]
+                properties:
+                  ok: { type: boolean }
+                  model: { type: string }
+                  info: { type: object, additionalProperties: true }
+                  error: { type: string }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/levers/estimate:
+    post:
+      operationId: estimateLevers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                video_ids: { type: array, items: { type: integer } }
+                pairs: { type: array, items: { type: array, items: { type: integer } } }
+                config: { type: object, additionalProperties: true }
+      responses:
+        "200":
+          description: Calls, tokens and estimated cost
+          content:
+            application/json:
+              schema: { type: object, required: [estimate], properties: { estimate: { $ref: "#/components/schemas/LeverEstimate" } } }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/levers/score:
+    post:
+      operationId: scoreLevers
+      description: Queue a Gemini scoring batch. Refused when GEMINI_API_KEY is missing.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [video_ids], properties: { video_ids: { type: array, items: { type: integer } } } } } }
+      responses:
+        "200": { description: Job, content: { application/json: { schema: { $ref: "#/components/schemas/LeverJobStart" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/levers/ab:
+    post:
+      operationId: startLeversAB
+      description: Score up to 5 videos both by upload and by YouTube URL (real API calls).
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [video_ids], properties: { video_ids: { type: array, items: { type: integer } } } } } }
+      responses:
+        "200":
+          description: Job
+          content:
+            application/json:
+              schema: { type: object, required: [job], properties: { job: { oneOf: [{ $ref: "#/components/schemas/JobSummary" }, { type: "null" }] } } }
+        "400": { $ref: "#/components/responses/Error" }
+    get:
+      operationId: leversABReport
+      parameters:
+        - { name: video_ids, in: query, required: true, schema: { type: string } }
+        - { name: model, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: Upload vs URL aggregate per lever
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rows]
+                properties:
+                  rows:
+                    type: array
+                    items:
+                      type: object
+                      required: [video_id, lever, upload, youtube_url, difference]
+                      properties:
+                        video_id: { type: integer }
+                        lever: { type: string }
+                        upload: { type: [number, "null"] }
+                        youtube_url: { type: [number, "null"] }
+                        difference: { type: [number, "null"] }
+  /api/levers/pairwise:
+    post:
+      operationId: startLeversPairwise
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [pairs], properties: { pairs: { type: array, items: { type: array, items: { type: integer } } } } } } }
+      responses:
+        "200": { description: Job, content: { application/json: { schema: { $ref: "#/components/schemas/LeverJobStart" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+    get:
+      operationId: leversPairwise
+      parameters:
+        - { name: study_id, in: query, schema: { type: integer } }
+        - { name: video_id, in: query, schema: { type: integer } }
+      responses:
+        "200":
+          description: Pairwise judgments
+          content:
+            application/json:
+              schema: { type: object, required: [rows], properties: { rows: { type: array, items: { $ref: "#/components/schemas/LeverPairwiseRow" } } } }
+  /api/studies/{study_id}/levers-pairwise:
+    parameters: [{ $ref: "#/components/parameters/StudyId" }]
+    post:
+      operationId: studyLeversPairwise
+      requestBody:
+        content: { application/json: { schema: { type: object, properties: { estimate_only: { type: boolean } } } } }
+      responses:
+        "200":
+          description: Job (or just the estimate)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [estimate]
+                properties:
+                  job: { oneOf: [{ $ref: "#/components/schemas/JobSummary" }, { type: "null" }] }
+                  estimate: { $ref: "#/components/schemas/LeverEstimate" }
+                  pairs: { type: integer }
+                  dropped_pairs: { type: integer }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/videos/{video_id}/levers:
+    parameters: [{ $ref: "#/components/parameters/VideoId" }]
+    get:
+      operationId: videoLevers
+      responses:
+        "200": { description: Lever scores, content: { application/json: { schema: { $ref: "#/components/schemas/VideoLevers" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/levers/jobs/{job_id}/cost:
+    parameters: [{ $ref: "#/components/parameters/JobId" }]
+    get:
+      operationId: leversJobCost
+      responses:
+        "200":
+          description: Estimated vs actual cost
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job_id, estimate, actual]
+                properties:
+                  job_id: { type: integer }
+                  estimate: { oneOf: [{ $ref: "#/components/schemas/LeverEstimate" }, { type: "null" }] }
+                  actual:
+                    type: object
+                    required: [calls, input_tokens, output_tokens, cost_usd]
+                    properties:
+                      calls: { type: integer }
+                      input_tokens: { type: integer }
+                      output_tokens: { type: integer }
+                      cost_usd: { type: number }
+        "404": { $ref: "#/components/responses/Error" }

@@ -1,0 +1,68 @@
+# Secrets
+.env
+*.env
+!.env.example
+
+# Data: database, media, model caches. Never committed.
+/data/
+data/
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.db
+*.npy
+*.npz
+*.parquet
+*.pkl
+*.pt
+*.pth
+*.safetensors
+*.ckpt
+*.mp4
+*.mkv
+*.webm
+*.mov
+*.avi
+*.wav
+*.mp3
+*.m4a
+*.flac
+*.ogg
+*.part
+*.ytdl
+runner_cache/
+cache/
+.cache/
+hf_cache/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+
+# Node
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+.vite/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Small study outputs ARE committed
+!results/
+!results/**/*.json
+!results/**/*.csv
+!results/**/*.png
+!results/**/*.svg

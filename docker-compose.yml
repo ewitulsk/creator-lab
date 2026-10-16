@@ -1,0 +1,37 @@
+# docker compose up -d --build
+# Reads secrets from backend/.env at run time (create it with `uv run creator-lab setup`
+# in backend/, or copy .env.example). DATA_ROOT inside the containers is /data, mounted
+# from CREATOR_LAB_DATA (default ./data next to this file, which is gitignored).
+# The app is published on localhost only. The TRIBE (GPU) runner is not containerized:
+# run it on the host with CREATOR_LAB_URL=http://127.0.0.1:5050 and the same data folder.
+
+services:
+  app:
+    build: { context: ., target: app }
+    image: creator-lab-app
+    env_file: backend/.env
+    environment:
+      DATA_ROOT: /data
+      CREATOR_LAB_RESULTS_DIR: /data/results
+    volumes:
+      - ${CREATOR_LAB_DATA:-./data}:/data
+    ports:
+      - "127.0.0.1:5050:5050"
+    restart: unless-stopped
+
+  cpu-runner:
+    build: { context: ., target: cpu-runner }
+    image: creator-lab-cpu-runner
+    env_file: backend/.env
+    environment:
+      DATA_ROOT: /data
+      CREATOR_LAB_URL: http://app:5050
+      RUNNER_NAME: cpu@docker
+    volumes:
+      - ${CREATOR_LAB_DATA:-./data}:/data
+    depends_on:
+      app: { condition: service_healthy }
+    restart: unless-stopped
+    # Runners only start processing when you queue jobs in the UI. Leave this service
+    # out (`docker compose up app`) to run the app alone.
+    profiles: [runners]

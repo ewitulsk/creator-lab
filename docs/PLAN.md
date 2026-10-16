@@ -34,16 +34,17 @@ platforms later. Runs on Evan's desktop now; the cloud comes later.
 | `docs/` | this plan and other docs |
 
 The listing logic in `Dataset/build_dataset.py` is ported into ingest, and its pair
-selection becomes the first study. `Dataset/channels.txt` seeds the channel list.
+selection becomes the first study.
 
 ## Data model
 
 - `platforms`
-- `channels`: platform id, handle, title, country, uploads playlist, tracking,
-  download_media, tags, notes, added_at
+- `channels`: platform id, handle, title, country, uploads playlist, followed,
+  auto_track_new, tags, notes, added_at
 - `channel_snapshots`: subscribers, views, video count, captured_at
 - `videos`: channel, platform id, title, description, published_at, duration,
-  format (long / short / live / premiere), aspect, tags, category, language, discovered_at
+  format (long / short / live / premiere), aspect, tags, category, language, discovered_at,
+  selection (discovered / tracked)
 - `video_snapshots`: views, likes, comments, captured_at, source
 - `assets`: kind (video / audio / thumbnail / captions / title-text), path, bytes,
   sha256, width, height, codec
@@ -77,7 +78,8 @@ Built-in analyzers:
 - **Media: never store 4K.** Downloads are capped at `MAX_VIDEO_HEIGHT` (default 1080;
   720 is fine). Prefer H.264 + AAC mp4, one file used by both the browser and TRIBE, with
   no proxy. AV1 or VP9 is re-encoded to H.264 with ffmpeg at the capped height. Downloads
-  are CPU-runner jobs, and only for channels with `download_media` on.
+  are CPU-runner jobs, issued only for videos Evan pulls (or new uploads of a channel
+  with auto-track on).
 - Captions: prefer uploaded over auto-generated, and save both the VTT and parsed text.
   Thumbnails: the largest available. Titles: `title.txt`.
 - The YouTube Analytics API only works for channels Evan owns, so it is unused for now.
@@ -92,6 +94,98 @@ data/
   runner_cache/tribe/
   exports/
 ```
+
+## Manual video selection (Discover)
+
+Evan picks what gets pulled. Nothing is downloaded just because a channel was opened.
+
+- **Discover page**, the main way data gets added:
+  - **Find a channel** by name with `search.list type=channel` (100 units, only on an
+    explicit search), or by URL, handle or id. Results show avatar, subscribers and
+    video count.
+  - **Open a channel** to list all its uploads from the uploads playlist (cheap:
+    `playlistItems` plus batched `videos.list`). Each upload shows thumbnail, title,
+    published date, duration, format, views and outlier score. This metadata is stored
+    in `videos` with selection `discovered`, so browsing never downloads media.
+  - **Filters**:
+    - time frame: last 7, 30 or 90 days, last year, all time, or a custom date range
+    - most popular: top N by outlier score (the default, since raw views favour older
+      videos) or by views
+    - least popular: bottom N, same options
+    - format: long-form, Shorts or both; live streams and premieres excluded by
+      default; minimum duration
+    - videos needed for study X: runs that study's criteria against this channel's
+      videos and shows the ones it would include, with their role (e.g. pair 3 hit).
+      Videos already pulled are badged. Study modules therefore expose a criteria
+      function that runs against one channel's candidates.
+  - **Selection**: checkboxes plus "select all filtered". "Pull selected" marks the
+    videos tracked, takes a stats snapshot, and queues download, captions and thumbnail
+    jobs (1080p cap). An optional toggle also adds them to a study. A cost preview
+    shows the number of videos, estimated GB at the download cap and quota units.
+- **Model**:
+  - Videos have a selection state: `discovered` (metadata only) or `tracked`
+    (snapshots plus media).
+  - Scheduled snapshots run for tracked videos only. Discovered videos are refreshed
+    when their channel is reopened.
+  - A channel can be followed (daily channel stats, new-upload checks). Its
+    "auto-track new uploads" toggle defaults to off.
+  - Listing a channel's uploads never downloads anything.
+- The seed `channels.txt` import is dropped. Channels are added through Discover.
+
+## YouTube owner sync ("Sync data from YT")
+
+Evan's own channel (https://www.youtube.com/@evanwitulski) gets the data only the owner can see.
+
+- **Sign in with YouTube**: the Google OAuth 2.0 web flow with the scopes
+  `yt-analytics.readonly` and `youtube.readonly`, redirecting to a backend callback.
+  The refresh token is stored encrypted in the DB (Fernet, key derived from
+  `SECRET_KEY`) and never appears in logs or the repo. Settings:
+  `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI`.
+  Setup steps: [docs/youtube-oauth.md](youtube-oauth.md).
+- **Owned channel**: found with `channels.list mine=true` and marked owned (with a
+  credential row). Every upload is pulled, including private and unlisted ones:
+  - Data API: full snippet, contentDetails, status, statistics, topicDetails
+  - Analytics, lifetime per video: views, estimatedMinutesWatched, averageViewDuration,
+    averageViewPercentage, likes, dislikes, comments, shares, subscribersGained/Lost,
+    card metrics; impressions and CTR only if the API accepts them (it degrades
+    silently and does not show them as available otherwise)
+  - daily time series per video (dimension `day`)
+  - audience retention: `elapsedVideoTimeRatio` with `audienceWatchRatio` and
+    `relativeRetentionPerformance`, split by `audienceType` where available, stored
+    with the video duration so ratios convert to seconds (`retention_curves` table,
+    versioned per sync)
+  - breakdowns: traffic source, device, country, age group and gender, subscribed status
+  - every report is kept as versioned raw JSON plus parsed tables, and every call is logged
+- The owned channel's videos are downloaded through the normal download jobs (1080p
+  cap). Private videos may fail without cookies: they are marked, not crashed on.
+- There is no scheduled refresh. Signing in again offers **Re-pull everything** (a new
+  retention snapshot version; old ones are kept) or **Pull new only**, and shows the
+  last sync time and counts.
+- UI: an owned badge, and a **Real engagement** tab on the video page with the retention
+  curve. When a TRIBE result exists, the TRIBE engagement curve is overlaid on the same
+  time axis.
+
+## "Most replayed" heatmap (public, yt-dlp)
+
+- Downloads save the full yt-dlp info dict as `info.json` next to the video (sanitized:
+  no cookies or request headers) and register it as an asset.
+- Its `heatmap` (about 100 segments with start, end and value, only on videos with enough
+  views), `chapters` and a stats snapshot (view, like and comment counts at capture) go
+  into `video_info_captures`, `video_heatmaps` and `video_chapters`, versioned per capture.
+- A lightweight **`heatmap@1`** job does the same **without downloading** (metadata
+  only), for any public video: discovered ones and other creators' too.
+- UI: the Most Replayed curve sits under the player on the video's time axis, and is its
+  own column in the coverage grid.
+- **Kept strictly separate from the owner's real Analytics data.** The public heatmap
+  (`video_heatmaps`, source `yt_dlp_heatmap`) and real retention (`retention_curves`,
+  source `youtube_analytics`) are separate tables and are never merged, backfilled or
+  overwritten from each other. For owned videos that have both, the video page overlays
+  them on one time axis, labelled as public heatmap versus real retention.
+- Studies: the heatmap is a target signal in the retention study (the public proxy for
+  engagement over time, so the TRIBE-versus-engagement test can run on other creators'
+  channels). A "heatmap versus real retention" analysis (per-video correlation,
+  aggregated across owned videos) measures how good a proxy it is. The methodology stays
+  unlocked.
 
 ## Runner API (Bearer `RUNNER_TOKEN`)
 
@@ -126,13 +220,23 @@ Each stage runs across the **whole batch**, with one model on the GPU at a time:
 The runner resumes from the feature cache. neuralset keeps `self._model` forever (about
 15 GB peak VRAM), so the runner frees it at runtime. tqdm is hooked for progress.
 
-Outputs per video:
+Outputs per video: **save everything, especially timestamps** (nothing TRIBE returns is dropped):
 
-- `preds.npy` as float16 (timesteps x 20,484 fsaverage5 vertices)
-- `timing.json` with the start second of each timestep. Resolve why video gave about
-  2.8 timesteps per second versus about 1 for text.
+- `preds.npy` as float16, one row per second of the input (timesteps x 20,484 fsaverage5)
+- `raw/preds_rows.npy` and `rows.parquet`: every prediction row exactly as TRIBE returned
+  it, with segment start, duration, window/batch index, kept or dropped (dropped rows
+  are NaN in the full-length array) and which modalities had events
+- `timing.json`: the start second of each row in `preds.npy` and how rows were aligned
+- `events.parquet` (the events TRIBE built), `words.parquet` and `transcript.txt` (WhisperX)
+- `features/`: per-modality pre-brain features over time (Llama, w2v-BERT, V-JEPA2
+  layer groups, fp16) with their timestamps and frequency, plus pooled versions
 - `regions.parquet`: network and region means over time
-- pooled pre-brain embeddings
+- `meta.json`: TR and frequencies, window settings, the full data and model config,
+  model and checkpoint ids and hashes, library versions, GPU, dtype and patch settings,
+  per-stage wall times
+- `manifest.json`: every file written
+
+Timesteps versus seconds is resolved: see [docs/tribe-timing.md](tribe-timing.md).
 
 Benchmark on `BrainThing\samples\roomba\roomba_h264.mp4`. The old run took about 2h10m
 on the 5070 Ti (V-JEPA2 89 min, Llama 33 min). There is also a TRIBE-on-title job type
@@ -205,6 +309,34 @@ export as CSV or Parquet.
   cheap-features model and a pre-brain-embeddings model. Side analyses: title TRIBE
   and thumbnail ResMem on the same pairs.
 
+### Engagement analyzer and the retention study
+
+- **`tribe_engagement@1`** (depends on TRIBE video preds) maps vertices to Yeo 7
+  networks (fsaverage5, left then right) and to HCP-MMP1 areas. For each region it
+  z-scores every vertex over time, averages them, and regresses out the whole-cortex
+  average signal. Curves per timestep:
+  - stimulus drive: whole-cortex magnitude, an ISC analog
+  - draft engagement index: mean(dorsal attention, salience/ventral attention) minus
+    default mode
+  - anterior insula, and NAcc if the tribev2 subcortical model is available
+- **Study "Does TRIBE predict real audience retention?"** on owned-channel videos:
+  - the target is drop-off per 1% bin (change in `audienceWatchRatio`) plus
+    `relativeRetentionPerformance`, excluding the first and last 5%
+  - the control is the generic retention decay shape (a smooth decay fit), so TRIBE has
+    to explain the residual dips and bumps, not the overall decline
+  - tests: per-video Spearman correlation of the TRIBE curve (and its derivative) with
+    the residuals; across videos, a sign or permutation test with circular-shift nulls
+    within each video; and a leave-one-video-out ridge over network and parcel curves
+  - controls: the same tests on pre-brain features and on cheap features (shot cuts,
+    loudness, speech rate). Brain curves must beat them.
+  - the anterior insula is expected to be negative (Tong et al. 2020)
+  - curve definitions and lags are pre-registered but left **unlocked** for Evan to approve
+  - the Discover "videos needed for study X" filter works for this study too
+- Notes from the build: NAcc is not available (no subcortical TRIBE v2 checkpoint has been
+  released). Yeo-7 comes from the FreeSurfer fsaverage5 annotation when it can be fetched,
+  otherwise from an HCP-MMP1 approximation (recorded per result). ResMem needs the
+  runner's optional esmem extra. See [docs/studies.md](studies.md).
+
 ## Auth and config
 
 - Admin credentials are never hardcoded (the repo is public). `ADMIN_PASSWORD` is read
@@ -218,12 +350,15 @@ export as CSV or Parquet.
 
 1. **Foundation**: skeleton, gitignore, app factory, models and migration, login,
    settings, SPA, CI. Done when Evan can log in to an empty dashboard.
-2. **Channels and videos**: ingest, snapshots, thumbnails and captions, pages, outlier
-   score, channels.txt import. Done when his channels are browsable with stats history.
+2. **Channels and videos**: ingest, Discover (search, browse, filter, pull), snapshots,
+   thumbnails, pages, outlier score. Done when his channels are browsable with stats history.
 3. **Jobs and runners**: API, client, CPU runner downloads, staged fp16 TRIBE runner
    benchmarked, live Jobs page, coverage grid. Done when he can issue a TRIBE job and watch it.
+   **3b. YouTube owner sync**: OAuth, owned channel, Analytics reports, retention
+   curves, the Real engagement tab.
 4. **Brain player**. Done when roomba plays with its brain response.
-5. **Studies** framework plus the first study and its analyzers.
+5. **Studies** framework plus the first study and its analyzers, `tribe_engagement`,
+   and the retention study.
 6. **Compare creators**, Shorts views, exports, SQLite backups, Dockerfile and compose.
 
 ## Risks and open items
